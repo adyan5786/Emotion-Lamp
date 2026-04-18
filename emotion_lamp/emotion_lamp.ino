@@ -1,47 +1,30 @@
 /*
- * ============================================================
- *  emotion_lamp.ino — Emotion Lamp v2.0
- *  ESP32-WROOM-32E + INMP441 + WS2812B (16-LED Ring)
- * ============================================================
+ * emotion_lamp.ino — Emotion Lamp v2.1
+ * ESP32-WROOM-32E + INMP441 + WS2812B (16-LED Ring)
  *
- *  Behavior:
- *    - Quiet room  → Dim white
- *    - Active sound → Blue → Cyan → Purple → Orange → Red
- *                     (colour tracks dominant frequency)
- *    - Very loud   → Full red
- *    - Web control → http://4.3.2.1  (connect to "Emotion-Lamp" AP)
+ * Files:
+ *   config.h  ← Edit settings here
+ *   webui.h   ← Edit web UI here
+ *   emotion_lamp.ino ← This file (all C++ logic)
  *
- *  Files:
- *    config.h          ← ★ Edit this to change settings
- *    webui.h           ← Edit this to change the web page look
- *    emotion_lamp.ino  ← This file (all C++ logic)
+ * Pin wiring:
+ *   INMP441 SCK→GPIO25 | WS→GPIO26 | SD→GPIO22 | L/R→GND | VDD→3.3V
+ *   WS2812B DATA→GPIO4 (via SN74HC125N buffer)
  *
- *  Pin wiring (ESP32-WROOM-32E):
- *    INMP441  SCK → GPIO25  |  WS → GPIO26  |  SD → GPIO22
- *    INMP441  L/R → GND    |  VDD → 3.3V   |  GND → GND
- *    WS2812B DATA → GPIO4  (via SN74HC125N buffer)
- *
- *  Libraries needed (Arduino Library Manager):
- *    - FastLED      by Daniel Garcia
- *    - arduinoFFT   by Enrique Condes  (version 2.x)
- *    WiFi.h and WebServer.h are built into the ESP32 Arduino core.
- *
- *  Board: Tools → Board → ESP32 Arduino → "ESP32 Dev Module"
- * ============================================================
+ * Libraries: FastLED, arduinoFFT (2.x)
+ * WiFi.h is built into the ESP32 Arduino core.
+ * Board: ESP32 Dev Module
  */
 
-// ── Includes ──────────────────────────────────────────────────
 #include "driver/i2s_std.h"
 #include "driver/gpio.h"
-#include <WiFi.h>       // WiFiServer + WiFiClient — built into ESP32 core
+#include <WiFi.h>
 #include <FastLED.h>
 #include <arduinoFFT.h>
-#include "config.h"   // All tunable settings
-#include "webui.h"    // INDEX_HTML web page string
+#include "config.h"
+#include "webui.h"
 
-// ─────────────────────────────────────────────────────────────
-//  Globals
-// ─────────────────────────────────────────────────────────────
+// ── Globals ───────────────────────────────────────────────────
 CRGB    leds[NUM_LEDS];
 CRGB    currentColor  = CRGB::White;
 uint8_t currentBright = BRIGHT_QUIET;
@@ -52,19 +35,17 @@ int32_t  rawSamples[SAMPLES];
 ArduinoFFT<double> FFT = ArduinoFFT<double>(vReal, vImag, SAMPLES, SAMPLE_RATE);
 
 static i2s_chan_handle_t rx_chan = NULL;
-
-WiFiServer server(80);  // Raw TCP server on port 80 — works on all ESP32 core versions
+WiFiServer server(80);
 
 float smoothedRMS  = 0.0f;
 float smoothedFreq = 200.0f;
 
-// true = audio reactive, false = lamp off
-// volatile so web server callback and loop() share it safely
-volatile bool audioReactiveEnabled = true;
+volatile bool    audioReactiveEnabled = true;
+// ★ User-controlled brightness cap (0-255). Slider sets this.
+//   Defaults to BRIGHT_MAX from config.h.
+volatile uint8_t userBrightness = BRIGHT_MAX;
 
-// ─────────────────────────────────────────────────────────────
-//  Section 1 — I2S / Microphone
-// ─────────────────────────────────────────────────────────────
+// ── Section 1: I2S / Microphone ──────────────────────────────
 void setupI2S() {
   i2s_chan_config_t chan_cfg = I2S_CHANNEL_DEFAULT_CONFIG(
       (i2s_port_t)I2S_PORT, I2S_ROLE_MASTER);
@@ -81,29 +62,22 @@ void setupI2S() {
       .ws   = (gpio_num_t)I2S_WS_PIN,
       .dout = I2S_GPIO_UNUSED,
       .din  = (gpio_num_t)I2S_SD_PIN,
-      .invert_flags = {
-        .mclk_inv = false,
-        .bclk_inv = false,
-        .ws_inv   = false,
-      },
+      .invert_flags = { .mclk_inv=false, .bclk_inv=false, .ws_inv=false },
     },
   };
-  std_cfg.slot_cfg.slot_mask = I2S_STD_SLOT_LEFT; // L/R=GND → left channel
-
+  std_cfg.slot_cfg.slot_mask = I2S_STD_SLOT_LEFT;
   ESP_ERROR_CHECK(i2s_channel_init_std_mode(rx_chan, &std_cfg));
   ESP_ERROR_CHECK(i2s_channel_enable(rx_chan));
 }
 
 float readAudio() {
   size_t bytesRead = 0;
-  i2s_channel_read(rx_chan, rawSamples, sizeof(rawSamples),
-                   &bytesRead, portMAX_DELAY);
-  double sum   = 0.0;
-  int    count = (int)(bytesRead / sizeof(int32_t));
+  i2s_channel_read(rx_chan, rawSamples, sizeof(rawSamples), &bytesRead, portMAX_DELAY);
+  double sum = 0.0;
+  int count  = (int)(bytesRead / sizeof(int32_t));
   for (int i = 0; i < count; i++) {
-    int32_t s = rawSamples[i] >> 14;  // INMP441: 18-bit left-justified
-    vReal[i]  = (double)s;
-    vImag[i]  = 0.0;
+    int32_t s = rawSamples[i] >> 14;
+    vReal[i] = (double)s; vImag[i] = 0.0;
     sum += (double)s * s;
   }
   for (int i = count; i < SAMPLES; i++) { vReal[i] = 0.0; vImag[i] = 0.0; }
@@ -117,42 +91,36 @@ double getDominantFreq() {
   return FFT.majorPeak();
 }
 
-// ─────────────────────────────────────────────────────────────
-//  Section 2 — LED / Colour Logic
-// ─────────────────────────────────────────────────────────────
-
-// Anchor colours for each frequency zone (edit CRGB values to change a zone)
-static const CRGB COL_BLUE   = CRGB( 10,  30, 255);  // Zone 1 — deep bass
-static const CRGB COL_CYAN   = CRGB(  0, 220, 200);  // Zone 2 — low speech
-static const CRGB COL_PURPLE = CRGB(160,  20, 220);  // Zone 3 — mid speech
-static const CRGB COL_ORANGE = CRGB(255, 100,   0);  // Zone 4 — upper speech
-static const CRGB COL_RED    = CRGB(255,  15,  15);  // Zone 5 — shrill/loud
+// ── Section 2: LED / Colour ───────────────────────────────────
+// Colour anchor per frequency zone — edit CRGB values to change a zone's colour
+static const CRGB COL_BLUE    = CRGB(  0, 150, 255);  // Bass          (calming light blue)
+static const CRGB COL_PURPLE  = CRGB(100,   0, 255);  // Low speech    (electric purple)
+static const CRGB COL_MAGENTA = CRGB(255,   0, 100);  // Mid speech    (vibrant magenta)
+static const CRGB COL_ORANGE  = CRGB(255,  50,   0);  // Upper speech  (fiery orange-red)
+static const CRGB COL_RED     = CRGB(139,   0,   0);  // Loud / shrill (intense dark red)
 
 uint8_t lerpU8(uint8_t a, uint8_t b, float t) {
   return (uint8_t)((float)a + t * ((float)b - (float)a));
 }
-
 CRGB lerpColor(CRGB a, CRGB b, float t) {
-  return CRGB(lerpU8(a.r, b.r, t),
-              lerpU8(a.g, b.g, t),
-              lerpU8(a.b, b.b, t));
+  return CRGB(lerpU8(a.r,b.r,t), lerpU8(a.g,b.g,t), lerpU8(a.b,b.b,t));
 }
 
 CRGB freqToColor(float freq) {
-  if (freq < FREQ_BAND_1) {
-    return COL_BLUE;
-  } else if (freq < FREQ_BAND_2) {
-    float t = (freq - FREQ_BAND_1) / (float)(FREQ_BAND_2 - FREQ_BAND_1);
-    return lerpColor(COL_BLUE, COL_CYAN, constrain(t, 0.0f, 1.0f));
-  } else if (freq < FREQ_BAND_3) {
-    float t = (freq - FREQ_BAND_2) / (float)(FREQ_BAND_3 - FREQ_BAND_2);
-    return lerpColor(COL_CYAN, COL_PURPLE, constrain(t, 0.0f, 1.0f));
-  } else if (freq < FREQ_BAND_4) {
-    float t = (freq - FREQ_BAND_3) / (float)(FREQ_BAND_4 - FREQ_BAND_3);
-    return lerpColor(COL_PURPLE, COL_ORANGE, constrain(t, 0.0f, 1.0f));
-  } else {
-    return COL_RED;
+  if (freq < FREQ_BAND_1) return COL_BLUE;
+  if (freq < FREQ_BAND_2) {
+    float t=(freq-FREQ_BAND_1)/(float)(FREQ_BAND_2-FREQ_BAND_1);
+    return lerpColor(COL_BLUE, COL_PURPLE, constrain(t,0.0f,1.0f));
   }
+  if (freq < FREQ_BAND_3) {
+    float t=(freq-FREQ_BAND_2)/(float)(FREQ_BAND_3-FREQ_BAND_2);
+    return lerpColor(COL_PURPLE, COL_MAGENTA, constrain(t,0.0f,1.0f));
+  }
+  if (freq < FREQ_BAND_4) {
+    float t=(freq-FREQ_BAND_3)/(float)(FREQ_BAND_4-FREQ_BAND_3);
+    return lerpColor(COL_MAGENTA, COL_ORANGE, constrain(t,0.0f,1.0f));
+  }
+  return COL_RED;
 }
 
 void updateLamp(float rms, float freq) {
@@ -160,15 +128,13 @@ void updateLamp(float rms, float freq) {
   uint8_t targetBright;
 
   if (rms < QUIET_THRESHOLD) {
-    targetColor  = CRGB(255, 255, 255);   // Quiet → dim white
+    targetColor  = CRGB(255, 255, 255);
     targetBright = BRIGHT_QUIET;
-
   } else if (rms >= NOISY_THRESHOLD) {
-    targetColor  = COL_RED;               // Very loud → full red
+    targetColor  = COL_RED;
     targetBright = BRIGHT_MAX;
-
   } else {
-    targetColor  = freqToColor(freq);     // Active → colour from pitch
+    targetColor  = freqToColor(freq);
     targetBright = (uint8_t)constrain(
       map((long)rms, QUIET_THRESHOLD, NOISY_THRESHOLD, BRIGHT_ACTIVE, BRIGHT_MAX),
       BRIGHT_ACTIVE, BRIGHT_MAX);
@@ -177,21 +143,19 @@ void updateLamp(float rms, float freq) {
   currentColor  = lerpColor(currentColor, targetColor, SMOOTH_FACTOR);
   currentBright = lerpU8(currentBright, targetBright, SMOOTH_FACTOR);
 
-  FastLED.setBrightness(currentBright);
+  // Apply userBrightness as a global master multiplier so the slider
+  // affects ALL states (quiet, active, loud) proportionally.
+  uint8_t finalBright = (uint8_t)((uint32_t)currentBright * userBrightness / 255);
+  FastLED.setBrightness(finalBright);
   fill_solid(leds, NUM_LEDS, currentColor);
   FastLED.show();
 }
 
-// ─────────────────────────────────────────────────────────────
-//  Section 3 — WiFi AP + Web Server
-//  Uses WiFiServer/WiFiClient (raw TCP) — built into WiFi.h,
-//  compatible with every ESP32 Arduino core version.
-// ─────────────────────────────────────────────────────────────
+// ── Section 3: WiFi AP + Web Server ──────────────────────────
 void startWiFiAP() {
   IPAddress apIP   (AP_IP_1, AP_IP_2, AP_IP_3, AP_IP_4);
   IPAddress gateway(AP_IP_1, AP_IP_2, AP_IP_3, AP_IP_4);
   IPAddress subnet (255, 255, 255, 0);
-
   Serial.println("[WiFi] Starting Access Point...");
   WiFi.softAPConfig(apIP, gateway, subnet);
   WiFi.softAP(AP_SSID, AP_PASSWORD);
@@ -205,41 +169,92 @@ void startWebServer() {
     AP_IP_1, AP_IP_2, AP_IP_3, AP_IP_4);
 }
 
-// Call this every loop() to process one pending HTTP request.
-// Reads the first line ("GET /path HTTP/1.1"), serves the right
-// response, then closes the connection. Takes <1 ms when idle.
+// Sends JSON with current lamp state — fetched by the webpage on load
+// and periodically for live RMS/Freq display.
+void sendStatus(WiFiClient& client) {
+  char json[900];
+  int n = snprintf(json, sizeof(json),
+    "{\"on\":%s,\"brightness\":%d,\"rms\":%d,\"freq\":%d,"
+    "\"zones\":["
+    "{\"name\":\"Quiet Room\",\"desc\":\"No sound detected (RMS < %d)\",\"hex\":\"#ffffff\",\"label\":\"(255, 255, 255)\"},"
+    "{\"name\":\"Bass\",\"desc\":\"Deep bass or rumble (below %d Hz)\",\"hex\":\"#%02x%02x%02x\",\"label\":\"(%d, %d, %d)\"},"
+    "{\"name\":\"Low Speech\",\"desc\":\"Low voice or hum (%d to %d Hz)\",\"hex\":\"#%02x%02x%02x\",\"label\":\"(%d, %d, %d)\"},"
+    "{\"name\":\"Mid Speech\",\"desc\":\"Normal conversation (%d to %d Hz)\",\"hex\":\"#%02x%02x%02x\",\"label\":\"(%d, %d, %d)\"},"
+    "{\"name\":\"Upper Speech\",\"desc\":\"Raised voice or high pitch (%d to %d Hz)\",\"hex\":\"#%02x%02x%02x\",\"label\":\"(%d, %d, %d)\"},"
+    "{\"name\":\"Loud / Shrill\",\"desc\":\"Loud override (RMS > %d or freq > %d Hz)\",\"hex\":\"#%02x%02x%02x\",\"label\":\"(%d, %d, %d)\"}"
+    "]}",
+    audioReactiveEnabled ? "true" : "false",
+    (int)userBrightness,
+    (int)smoothedRMS, (int)smoothedFreq,
+    QUIET_THRESHOLD,
+    FREQ_BAND_1,
+      (int)COL_BLUE.r,    (int)COL_BLUE.g,    (int)COL_BLUE.b,
+      (int)COL_BLUE.r,    (int)COL_BLUE.g,    (int)COL_BLUE.b,
+    FREQ_BAND_1, FREQ_BAND_2,
+      (int)COL_PURPLE.r,  (int)COL_PURPLE.g,  (int)COL_PURPLE.b,
+      (int)COL_PURPLE.r,  (int)COL_PURPLE.g,  (int)COL_PURPLE.b,
+    FREQ_BAND_2, FREQ_BAND_3,
+      (int)COL_MAGENTA.r, (int)COL_MAGENTA.g, (int)COL_MAGENTA.b,
+      (int)COL_MAGENTA.r, (int)COL_MAGENTA.g, (int)COL_MAGENTA.b,
+    FREQ_BAND_3, FREQ_BAND_4,
+      (int)COL_ORANGE.r,  (int)COL_ORANGE.g,  (int)COL_ORANGE.b,
+      (int)COL_ORANGE.r,  (int)COL_ORANGE.g,  (int)COL_ORANGE.b,
+    NOISY_THRESHOLD, FREQ_BAND_4,           // swapped to match new desc order
+      (int)COL_RED.r,     (int)COL_RED.g,     (int)COL_RED.b,
+      (int)COL_RED.r,     (int)COL_RED.g,     (int)COL_RED.b
+  );
+  client.printf(
+    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
+    "Access-Control-Allow-Origin: *\r\nContent-Length: %d\r\n"
+    "Connection: close\r\n\r\n", n);
+  client.write((uint8_t*)json, n);
+}
+
+// Main HTTP request handler — called every loop()
 void processWebClients() {
   WiFiClient client = server.available();
   if (!client) return;
 
-  // Wait briefly for data
   unsigned long t = millis();
   while (!client.available() && millis() - t < 200) delay(1);
 
-  // Read the request line (e.g. "GET /off HTTP/1.1")
   String req = client.readStringUntil('\r');
   client.flush();
 
-  // Route: /off
-  if (req.indexOf("/off") != -1) {
+  // ── Route: /status ─────────────────────────────────────────
+  if (req.indexOf("/status") != -1) {
+    sendStatus(client);
+
+  // ── Route: /brightness?val=N ───────────────────────────────
+  } else if (req.indexOf("/brightness") != -1) {
+    int vi = req.indexOf("val=");
+    if (vi != -1) {
+      String vs = req.substring(vi + 4);
+      int sp = vs.indexOf(' '); if (sp != -1) vs = vs.substring(0, sp);
+      userBrightness = (uint8_t)constrain(vs.toInt(), 0, 255);
+      Serial.printf("[Web] Brightness -> %d\n", (int)userBrightness);
+    }
+    client.print("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nOK");
+
+  // ── Route: /off ────────────────────────────────────────────
+  } else if (req.indexOf("/off") != -1) {
     audioReactiveEnabled = false;
-    Serial.println("[Web] Lamp turned OFF");
+    Serial.println("[Web] Lamp OFF");
     client.print("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nOFF");
 
-  // Route: /on
+  // ── Route: /on ─────────────────────────────────────────────
   } else if (req.indexOf("/on") != -1) {
     audioReactiveEnabled = true;
     Serial.println("[Web] Audio reactive ON");
     client.print("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nON");
 
-  // Route: / (control page)
+  // ── Route: / (main page) ───────────────────────────────────
   } else {
-    // Send INDEX_HTML from PROGMEM in one chunk
     uint16_t len = strlen_P(INDEX_HTML);
-    client.printf("HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: %u\r\nConnection: close\r\n\r\n", len);
-    // Stream PROGMEM string in 256-byte chunks to avoid stack overflow
-    char buf[256];
-    uint16_t pos = 0;
+    client.printf(
+      "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n"
+      "Content-Length: %u\r\nConnection: close\r\n\r\n", len);
+    char buf[256]; uint16_t pos = 0;
     while (pos < len) {
       uint16_t chunk = min((uint16_t)256, (uint16_t)(len - pos));
       memcpy_P(buf, INDEX_HTML + pos, chunk);
@@ -247,51 +262,47 @@ void processWebClients() {
       pos += chunk;
     }
   }
-
   delay(1);
   client.stop();
 }
 
-// ─────────────────────────────────────────────────────────────
-//  setup() and loop()
-// ─────────────────────────────────────────────────────────────
+// ── setup() and loop() ────────────────────────────────────────
 void setup() {
   Serial.begin(115200);
-
   FastLED.addLeds<WS2812B, LED_DATA_PIN, GRB>(leds, NUM_LEDS);
   FastLED.setBrightness(BRIGHT_QUIET);
   fill_solid(leds, NUM_LEDS, CRGB::White);
   FastLED.show();
-
   startWiFiAP();
   startWebServer();
   setupI2S();
-
-  Serial.println("[Lamp] Emotion Lamp v2.0 ready.");
+  Serial.println("[Lamp] Emotion Lamp v2.1 ready.");
 }
 
 void loop() {
-  // ── Lamp OFF ──────────────────────────────────────────────
+  // ── Lamp OFF: fade LEDs to black over ~1 second ─────────────
   if (!audioReactiveEnabled) {
-    fill_solid(leds, NUM_LEDS, CRGB::Black);
-    FastLED.show();
+    if (currentBright > 0) {
+      // Subtract 8 per frame (30ms) → full fade in ~1s
+      currentBright = (currentBright > 8) ? currentBright - 8 : 0;
+      uint8_t fb = (uint8_t)((uint32_t)currentBright * userBrightness / 255);
+      FastLED.setBrightness(fb);
+      FastLED.show();
+    }
     processWebClients();
-    delay(50);
+    delay(30);
     return;
   }
 
-  // ── Audio Reactive ────────────────────────────────────────
+  // ── Audio Reactive ───────────────────────────────────────────
+  // When turning back ON, currentBright is ~0 so lerpU8 in
+  // updateLamp() naturally fades the brightness back in.
   float  rawRMS  = readAudio();
   double rawFreq = getDominantFreq();
-
   smoothedRMS  += SMOOTH_FACTOR * (rawRMS         - smoothedRMS);
   smoothedFreq += SMOOTH_FACTOR * ((float)rawFreq - smoothedFreq);
-
-  Serial.printf("RMS: %4d  Freq: %4d Hz\n",
-    (int)smoothedRMS, (int)smoothedFreq);
-
+  Serial.printf("RMS: %4d  Freq: %4d Hz\n", (int)smoothedRMS, (int)smoothedFreq);
   updateLamp(smoothedRMS, smoothedFreq);
-
-  processWebClients();  // Handle any pending HTTP request (~0 ms when idle)
+  processWebClients();
   delay(30);
 }

@@ -8,10 +8,18 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>Emotion Lamp</title>
 <style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{--bg:#111;--sf:#1a1a1a;--sf2:#222;--bd:#2c2c2c;--tx:#dedede;--dim:#555;--accent:#b8a0f0;--on:#7dff9a;--nav:64px;--side:200px}
+/* Unified dark scrollbar theme for all modal scroll areas */
+.modal-scroll{scrollbar-width:thin;scrollbar-color:#2b2b2b #090909}
+.modal-scroll::-webkit-scrollbar{width:10px;height:10px}
+.modal-scroll::-webkit-scrollbar-track{background:#090909;border-left:1px solid #141414}
+.modal-scroll::-webkit-scrollbar-thumb{background:#2b2b2b;border-radius:999px;border:2px solid #090909}
+.modal-scroll::-webkit-scrollbar-thumb:hover{background:#3a3a3a}
+.modal-scroll::-webkit-scrollbar-corner{background:#090909}
 html,body{height:100%;overflow:hidden}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--tx);display:flex;height:100dvh}
+button{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 .sidebar{display:none;width:var(--side);background:var(--sf);border-right:1px solid var(--bd);flex-direction:column;flex-shrink:0}
 .sb-head{padding:22px 16px 18px;border-bottom:1px solid var(--bd)}
 .sb-head h1{font-size:.88rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
@@ -61,7 +69,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .pencil-btn:hover svg{stroke:#fff}
 /* slider */
 .slider-wrap{display:flex;align-items:center;gap:12px;margin-top:12px}
-.slider{flex:1;-webkit-appearance:none;appearance:none;height:4px;border-radius:2px;background:var(--bd);outline:none;cursor:pointer}
+.slider{flex:1;min-width:0;width:100%;display:block;-webkit-appearance:none;appearance:none;height:4px;border-radius:2px;background:var(--bd);outline:none;cursor:pointer}
 .slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:18px;height:18px;border-radius:50%;background:var(--tx);cursor:pointer}
 .slider::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:var(--tx);cursor:pointer;border:none}
 .bval{font-size:.88rem;font-weight:700;min-width:28px;text-align:right}
@@ -81,6 +89,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .bi.active{color:var(--accent)}
 .bi.active svg{stroke:var(--accent)!important}
 @media(min-width:640px){.sidebar{display:flex}.bnav{display:none}.content{padding-bottom:0}}
+@media(max-width:639px){
+  html,body{overflow-y:auto;overflow-x:hidden}
+  .content{overflow-y:visible;min-height:100dvh}
+}
 /* toast notification */
 .toast{position:fixed;top:-70px;left:50%;transform:translateX(-50%);z-index:400;background:var(--sf);border:1px solid #3a6b3a;border-radius:10px;padding:11px 22px;font-size:.84rem;font-weight:600;color:#7dff9a;transition:top .4s cubic-bezier(.22,1,.36,1);white-space:nowrap;box-shadow:0 6px 24px rgba(0,0,0,.5);pointer-events:none}
 .toast.show{top:16px}
@@ -105,6 +117,36 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .about-team b{color:var(--tx)}
 .gh-btn{display:flex;align-items:center;gap:8px;background:#24292e;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-size:.9rem;font-weight:600;transition:background .15s}
 .gh-btn:hover{background:#2f363d}
+.wifi-modal-body{padding:16px;max-height:72vh;overflow-y:auto}
+.wifi-modal-shell{display:flex;flex-direction:column;max-height:88vh}
+.wifi-card{background:var(--sf2);border:1px solid var(--bd);border-radius:12px;padding:14px 12px;margin-bottom:12px}
+.wifi-card h4{font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin-bottom:10px}
+.wifi-pill-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:2px}
+.wifi-grid{display:grid;grid-template-columns:1fr;gap:10px}
+.wifi-label{font-size:.72rem;color:var(--dim);margin-bottom:4px;display:block}
+.wifi-input{width:100%;padding:10px 11px;border-radius:9px;border:1px solid var(--bd);background:#181818;color:var(--tx);font-size:.84rem;outline:none;transition:border-color .15s}
+.wifi-input:focus{border-color:var(--accent)}
+.wifi-row{display:flex;gap:8px;align-items:center}
+.wifi-pw-wrap{position:relative}
+.wifi-pw-btn{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:1px solid var(--bd);background:var(--sf2);color:var(--dim);font-size:.67rem;padding:5px 8px;border-radius:6px;cursor:pointer}
+.wifi-meta{font-size:.8rem;color:var(--dim);line-height:1.65}
+.wifi-pill{display:inline-block;padding:4px 9px;border-radius:999px;border:1px solid var(--bd);font-size:.67rem;letter-spacing:.05em;text-transform:uppercase;color:var(--dim);margin-right:0}
+.wifi-pill.ok{color:var(--on);border-color:#2d6b3a;background:rgba(100,220,130,.08)}
+.wifi-pill.warn{color:#f0b26a;border-color:#7d5a2e;background:rgba(180,120,50,.12)}
+.wifi-btn{padding:11px 12px;border-radius:10px;border:1px solid var(--bd);background:var(--sf2);color:var(--tx);font-size:.82rem;font-weight:600;cursor:pointer}
+.wifi-btn.primary{border-color:var(--accent);color:var(--accent);background:rgba(184,160,240,.08)}
+.wifi-btn.danger{border-color:#7a3a3a;color:#e07070;background:rgba(180,60,60,.12)}
+.wifi-note{font-size:.68rem;color:var(--dim);margin-top:6px;line-height:1.45}
+.wifi-modal-footer{display:flex;gap:10px;padding:12px 16px 16px;border-top:1px solid var(--bd);background:var(--sf)}
+.modal-close-btn{width:30px;height:30px;min-width:30px;min-height:30px;border-radius:50%;border:1px solid var(--bd);background:var(--sf2);color:var(--tx);font-size:1.1rem;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;flex:0 0 30px}
+.spec-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.spec-item{background:#181818;border:1px solid var(--bd);border-radius:9px;padding:9px}
+.spec-k{font-size:.62rem;color:var(--dim);text-transform:uppercase;letter-spacing:.06em}
+.spec-v{font-size:.8rem;color:var(--tx);font-weight:600;margin-top:4px;word-break:break-word}
+.meter{width:100%;height:10px;border-radius:999px;background:#0f0f0f;border:1px solid var(--bd);overflow:hidden;margin-top:8px}
+.meter-fill{height:100%;width:0%;background:#b8a0f0;transition:width .35s ease}
+.meter-meta{font-size:.7rem;color:var(--dim);margin-top:6px}
+@media(max-width:480px){.spec-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -197,7 +239,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
       </div>
       <div style="display:flex;gap:10px;padding:12px 20px 24px">
         <button class="back-btn" onclick="backFromCustom()">&#8592; Back</button>
-        <button class="save-btn" id="save-profile-btn" onclick="saveProfile()">Save Profile</button>
+        <button class="wifi-btn primary" style="flex:1" id="save-profile-btn" onclick="saveProfile()">Save Profile</button>
       </div>
     </div>
   </div>
@@ -217,7 +259,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
           <span>Advanced Frequency Tuning</span>
           <span class="chev">&#8250;</span>
         </div>
-        <div class="setting-item" onclick="showFeatureModal('Wi-Fi Configurator')">
+        <div class="setting-item" onclick="openWifiModal()">
           <span>Wi-Fi Configurator</span>
           <span class="chev">&#8250;</span>
         </div>
@@ -225,7 +267,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 
       <div class="sec">
         <div class="sec-title">System</div>
-        <div class="setting-item" onclick="showFeatureModal('System Specifications')">
+        <div class="setting-item" onclick="openSysModal()">
           <span>System Specifications</span>
           <span class="chev">&#8250;</span>
         </div>
@@ -273,6 +315,139 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
         View on GitHub
       </a>
+    </div>
+  </div>
+</div>
+
+<!-- Wi-Fi Configurator Modal -->
+<div id="wifi-modal" style="display:none;position:fixed;inset:0;z-index:320;background:rgba(0,0,0,.78);align-items:center;justify-content:center;padding:20px">
+  <div class="wifi-modal-shell" style="background:var(--sf);border:1px solid var(--bd);border-radius:16px;width:min(520px,100%);overflow:hidden;box-shadow:0 18px 60px rgba(0,0,0,.55)">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 16px 14px;border-bottom:1px solid var(--bd)">
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <span style="font-size:.96rem;font-weight:700">Wi-Fi Configurator</span>
+        <div class="wifi-pill-row">
+          <span id="wifi-pill-ap" class="wifi-pill">AP</span>
+          <span id="wifi-pill-sta" class="wifi-pill">STA</span>
+          <span id="wifi-pill-pending" class="wifi-pill">No Pending Changes</span>
+        </div>
+      </div>
+      <button onclick="closeWifiModal()" class="modal-close-btn">&times;</button>
+    </div>
+
+    <div class="wifi-modal-body modal-scroll">
+      <div class="wifi-card">
+        <h4>Current Configuration</h4>
+        <div class="wifi-meta" id="wf-live">Loading saved configuration...</div>
+      </div>
+
+      <div class="wifi-card">
+        <h4>Access Point</h4>
+        <div class="wifi-grid">
+          <div>
+            <label class="wifi-label">AP Name (SSID)</label>
+            <input id="wf-ap-ssid" class="wifi-input" maxlength="32" placeholder="Emotion-Lamp">
+          </div>
+          <div>
+            <label class="wifi-label">AP Password</label>
+            <div class="wifi-pw-wrap">
+              <input id="wf-ap-pass" type="password" class="wifi-input" maxlength="63" placeholder="Enter new AP password">
+              <button id="wf-ap-pass-toggle" type="button" class="wifi-pw-btn" onclick="togglePw('wf-ap-pass','wf-ap-pass-toggle')">Show</button>
+            </div>
+            <div id="wf-ap-pass-meta" class="wifi-note">Password is masked by firmware and never echoed back.</div>
+          </div>
+          <div>
+            <label class="wifi-label">AP IP</label>
+            <input id="wf-ap-ip" class="wifi-input" placeholder="4.3.2.1">
+          </div>
+          <div class="wifi-row">
+            <button class="wifi-btn primary" onclick="saveApConfig()" style="flex:1">Save AP Settings</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="wifi-card">
+        <h4>Home Wi-Fi (STA)</h4>
+        <div class="wifi-grid">
+          <div>
+            <label class="wifi-label">Router SSID</label>
+            <input id="wf-sta-ssid" class="wifi-input" maxlength="32" placeholder="e.g. A">
+          </div>
+          <div>
+            <label class="wifi-label">Router Password</label>
+            <div class="wifi-pw-wrap">
+              <input id="wf-sta-pass" type="password" class="wifi-input" maxlength="63" placeholder="Enter router password">
+              <button id="wf-sta-pass-toggle" type="button" class="wifi-pw-btn" onclick="togglePw('wf-sta-pass','wf-sta-pass-toggle')">Show</button>
+            </div>
+            <div id="wf-sta-pass-meta" class="wifi-note">Leave blank only for open networks.</div>
+          </div>
+          <div class="wifi-row">
+            <button class="wifi-btn primary" onclick="saveStaConfig()" style="flex:1">Save Home Wi-Fi</button>
+            <button class="wifi-btn danger" onclick="forgetStaConfig()" style="flex:1">Forget Home Wi-Fi</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="wifi-card">
+        <h4>Hostname</h4>
+        <div class="wifi-grid">
+          <div>
+            <label class="wifi-label">mDNS Hostname</label>
+            <input id="wf-host" class="wifi-input" maxlength="32" placeholder="emotionlamp">
+            <div class="wifi-note">Allowed: lowercase letters, numbers, hyphen.</div>
+          </div>
+          <button class="wifi-btn primary" onclick="saveHostConfig()">Save Hostname</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="wifi-modal-footer">
+      <button class="wifi-btn" style="flex:1" onclick="discardNetworkChanges()">Discard Staged Changes</button>
+      <button class="wifi-btn primary" style="flex:1" onclick="applyNetworkChanges()">Apply & Reboot</button>
+    </div>
+  </div>
+</div>
+
+<!-- System Specifications Modal -->
+<div id="sys-modal" style="display:none;position:fixed;inset:0;z-index:310;background:rgba(0,0,0,.78);align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--sf);border:1px solid var(--bd);border-radius:16px;width:min(560px,100%);overflow:hidden;box-shadow:0 18px 60px rgba(0,0,0,.55)">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 16px 14px;border-bottom:1px solid var(--bd)">
+      <span style="font-size:.96rem;font-weight:700">System Specifications</span>
+      <button onclick="closeSysModal()" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--bd);background:var(--sf2);color:var(--tx);font-size:1.1rem;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center">&times;</button>
+    </div>
+    <div class="modal-scroll" style="padding:16px;max-height:72vh;overflow-y:auto">
+      <div class="sec-title" style="margin-bottom:8px">Firmware & Runtime</div>
+      <div class="spec-grid">
+        <div class="spec-item"><div class="spec-k">Firmware</div><div class="spec-v" id="spec-fw">-</div></div>
+        <div class="spec-item"><div class="spec-k">Build</div><div class="spec-v" id="spec-build">-</div></div>
+        <div class="spec-item"><div class="spec-k">ESP-IDF SDK</div><div class="spec-v" id="spec-sdk">-</div></div>
+        <div class="spec-item"><div class="spec-k">Uptime</div><div class="spec-v" id="spec-up">-</div></div>
+        <div class="spec-item"><div class="spec-k">CPU</div><div class="spec-v" id="spec-cpu">-</div></div>
+      </div>
+
+      <div class="sec-title" style="margin:14px 0 8px">Chip & Memory</div>
+      <div class="spec-grid">
+        <div class="spec-item"><div class="spec-k">Chip</div><div class="spec-v" id="spec-chip">-</div></div>
+        <div class="spec-item"><div class="spec-k">Revision</div><div class="spec-v" id="spec-rev">-</div></div>
+        <div class="spec-item"><div class="spec-k">Free Heap</div><div class="spec-v" id="spec-heap">-</div></div>
+        <div class="spec-item"><div class="spec-k">Min Heap</div><div class="spec-v" id="spec-minheap">-</div></div>
+        <div class="spec-item"><div class="spec-k">Sketch Size</div><div class="spec-v" id="spec-sketch">-</div></div>
+        <div class="spec-item"><div class="spec-k">Flash</div><div class="spec-v" id="spec-flash">-</div></div>
+      </div>
+
+      <div class="sec-title" style="margin:14px 0 8px">Storage Usage</div>
+      <div class="spec-item" style="padding:12px">
+        <div class="spec-k">Firmware Partition Usage</div>
+        <div class="meter"><div id="spec-sto-fill" class="meter-fill"></div></div>
+        <div id="spec-sto-meta" class="meter-meta">-</div>
+      </div>
+
+      <div class="sec-title" style="margin:14px 0 8px">Network Identity</div>
+      <div class="spec-grid">
+        <div class="spec-item"><div class="spec-k">AP</div><div class="spec-v" id="spec-ap">-</div></div>
+        <div class="spec-item"><div class="spec-k">STA</div><div class="spec-v" id="spec-sta">-</div></div>
+        <div class="spec-item"><div class="spec-k">Hostname</div><div class="spec-v" id="spec-host">-</div></div>
+        <div class="spec-item"><div class="spec-k">AP Clients</div><div class="spec-v" id="spec-clients">-</div></div>
+      </div>
     </div>
   </div>
 </div>
@@ -329,7 +504,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
       <span style="font-size:.96rem;font-weight:700">Frequency Tuning</span>
       <button onclick="closeFreqModal()" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--bd);background:var(--sf2);color:var(--tx);font-size:1.1rem;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center">&times;</button>
     </div>
-    <div style="padding:20px 16px;max-height:60vh;overflow-y:auto">
+    <div class="modal-scroll" style="padding:20px 16px;max-height:60vh;overflow-y:auto">
       <div style="margin-bottom:20px">
         <div style="display:flex;justify-content:space-between;margin-bottom:6px">
           <span style="font-size:.85rem;color:var(--dim)">Bass &#8594; Low Speech</span>
@@ -380,7 +555,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
   </div>
 </div>
 <!-- Action confirmation modal -->
-<div id="action-modal" style="display:none;position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.75);align-items:center;justify-content:center;padding:20px">
+<div id="action-modal" style="display:none;position:fixed;inset:0;z-index:360;background:rgba(0,0,0,.75);align-items:center;justify-content:center;padding:20px">
   <div style="background:var(--sf);border:1px solid var(--bd);border-radius:16px;width:min(320px,100%);overflow:hidden">
     <div style="padding:24px 20px 20px;text-align:center">
       <svg id="action-icon" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:12px;color:var(--dim)"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
@@ -455,6 +630,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 <script>
 var lampOn=false,tabs=['home','effects','settings'],btimer=null;
 var sliderInteracted=false,lastZones=null;
+var wifiModalOpen=false;
+var wifiStatusCache=null;
+var wifiCfgCache=null;
+var sysModalOpen=false;
 
 // ── Tab navigation ────────────────────────────────────────────
 var pendingNav=null; // stores blocked navigation when profileDirty
@@ -804,14 +983,253 @@ function saveProfile(){
 
 // ── Settings ──────────────────────────────────────────────────
 var audioModalOpen=false;
+var lastAudioSnapshot=null;
 function openAbout(){document.getElementById('about-modal').style.display='flex';}
 function closeAbout(){document.getElementById('about-modal').style.display='none';}
-function openSensModal(){document.getElementById('sens-modal').style.display='flex'; audioModalOpen=true;}
-function closeSensModal(){document.getElementById('sens-modal').style.display='none'; audioModalOpen=false;}
-function openFreqModal(){document.getElementById('freq-modal').style.display='flex'; audioModalOpen=true;}
-function closeFreqModal(){document.getElementById('freq-modal').style.display='none'; audioModalOpen=false;}
+function applyAudioSnapshotToControls(a){
+  if(!a||!a.f||a.f.length<4)return;
+  var sq=document.getElementById('sl-quiet'); if(sq) sq.value=a.q;
+  var sn=document.getElementById('sl-noisy'); if(sn) sn.value=a.n;
+  var sf0=document.getElementById('sl-fb0'); if(sf0) sf0.value=a.f[0];
+  var sf1=document.getElementById('sl-fb1'); if(sf1) sf1.value=a.f[1];
+  var sf2=document.getElementById('sl-fb2'); if(sf2) sf2.value=a.f[2];
+  var sf3=document.getElementById('sl-fb3'); if(sf3) sf3.value=a.f[3];
+
+  var lq=document.getElementById('lbl-quiet'); if(lq) lq.textContent=a.q;
+  var ln=document.getElementById('lbl-noisy'); if(ln) ln.textContent=a.n;
+  var lf0=document.getElementById('lbl-fb0'); if(lf0) lf0.textContent=a.f[0]+' Hz';
+  var lf1=document.getElementById('lbl-fb1'); if(lf1) lf1.textContent=a.f[1]+' Hz';
+  var lf2=document.getElementById('lbl-fb2'); if(lf2) lf2.textContent=a.f[2]+' Hz';
+  var lf3=document.getElementById('lbl-fb3'); if(lf3) lf3.textContent=a.f[3]+' Hz';
+}
+function openSensModal(){applyAudioSnapshotToControls(lastAudioSnapshot);document.getElementById('sens-modal').style.display='flex'; audioModalOpen=true;}
+function closeSensModal(){audioModalOpen=false;applyAudioSnapshotToControls(lastAudioSnapshot);document.getElementById('sens-modal').style.display='none';}
+function openFreqModal(){applyAudioSnapshotToControls(lastAudioSnapshot);document.getElementById('freq-modal').style.display='flex'; audioModalOpen=true;}
+function closeFreqModal(){audioModalOpen=false;applyAudioSnapshotToControls(lastAudioSnapshot);document.getElementById('freq-modal').style.display='none';}
 function showFeatureModal(name){document.getElementById('feature-name').textContent=name;document.getElementById('feature-title').textContent=name;document.getElementById('feature-modal').style.display='flex';}
 function closeFeatureModal(){document.getElementById('feature-modal').style.display='none';}
+
+function fmtBytes(v){
+  var n=parseInt(v||0,10),u=['B','KB','MB'];
+  var i=0,x=n;
+  while(x>=1024&&i<u.length-1){x/=1024;i++;}
+  return (i===0?x.toString():x.toFixed(1))+' '+u[i];
+}
+
+function openSysModal(){
+  sysModalOpen=true;
+  document.getElementById('sys-modal').style.display='flex';
+  loadSysInfo();
+}
+function closeSysModal(){
+  sysModalOpen=false;
+  document.getElementById('sys-modal').style.display='none';
+}
+
+function setSpec(id,val){
+  var el=document.getElementById(id); if(el) el.textContent=(val===undefined||val===null||val==='')?'-':val;
+}
+
+function setMeter(percent,meta){
+  var fill=document.getElementById('spec-sto-fill');
+  var lbl=document.getElementById('spec-sto-meta');
+  var p=Math.max(0,Math.min(100,Number(percent)||0));
+  if(fill) fill.style.width=p.toFixed(1)+'%';
+  if(lbl) lbl.textContent=meta||'-';
+}
+
+function applySysInfo(d){
+  if(!d)return;
+  var fw=d.firmware||{},chip=d.chip||{},mem=d.memory||{},sto=d.storage||{},up=d.uptime||{},net=d.network||{};
+  setSpec('spec-fw',(fw.version||'-'));
+  setSpec('spec-build',(fw.buildDate||'-')+' '+(fw.buildTime||''));
+  setSpec('spec-sdk',fw.sdk||'-');
+  setSpec('spec-up',up.pretty||'-');
+  setSpec('spec-cpu',(chip.cpuMHz!==undefined?chip.cpuMHz:'-')+' MHz');
+  setSpec('spec-chip',chip.model||'-');
+  setSpec('spec-rev',chip.revision);
+  setSpec('spec-heap',fmtBytes(mem.freeHeap));
+  setSpec('spec-minheap',fmtBytes(mem.minFreeHeap));
+  setSpec('spec-sketch',fmtBytes(mem.sketchSize));
+  setSpec('spec-flash',fmtBytes(mem.flashSize)+(mem.flashSpeed?(' @ '+Math.round(mem.flashSpeed/1000000)+' MHz'):''));
+  var fallbackApIp=net.fallbackApIp||net.apIp||'-';
+  setSpec('spec-ap',(net.apSsid||'-')+' @ '+(net.apIp||'-')+' (fallback '+fallbackApIp+')');
+  setSpec('spec-sta',net.staConnected?((net.staSsid||'-')+' @ '+(net.staIp||'-')):'Disconnected');
+  var mdnsHost=(net.mdns&&net.mdns.host)?net.mdns.host:((net.hostname?net.hostname+'.local':'-'));
+  setSpec('spec-host',mdnsHost);
+  setSpec('spec-clients',net.apClients);
+  var used=fmtBytes(sto.firmwareUsed), total=fmtBytes(sto.firmwareTotal), free=fmtBytes(sto.firmwareFree);
+  var pct=(sto.firmwareUsedPct!==undefined)?Number(sto.firmwareUsedPct):0;
+  setMeter(pct,used+' used of '+total+' ('+pct.toFixed(1)+'%), free '+free);
+}
+
+function loadSysInfo(){
+  fetch('/sysinfo').then(function(r){return r.text();}).then(function(t){
+    try{
+      var d=JSON.parse(t);
+      if(sysModalOpen) applySysInfo(d);
+    }catch(_e){
+      if(sysModalOpen) showToast('System info unavailable');
+    }
+  }).catch(function(){ if(sysModalOpen) showToast('System info unavailable'); });
+}
+
+function openWifiModal(){
+  wifiModalOpen=true;
+  document.getElementById('wifi-modal').style.display='flex';
+  loadWiFiConfig();
+  loadNetStatus();
+}
+function closeWifiModal(){
+  wifiModalOpen=false;
+  document.getElementById('wifi-modal').style.display='none';
+}
+
+function togglePw(inputId,btnId){
+  var inp=document.getElementById(inputId),btn=document.getElementById(btnId);
+  if(!inp||!btn)return;
+  var show=(inp.type==='password');
+  inp.type=show?'text':'password';
+  btn.textContent=show?'Hide':'Show';
+}
+
+function maskMeta(labelId,len,label){
+  var el=document.getElementById(labelId); if(!el)return;
+  if(len>0) el.textContent=label+' is saved ('+len+' chars). Enter a new value only if you want to change it.';
+  else el.textContent='No '+label.toLowerCase()+' saved yet.';
+}
+
+function updateWiFiPills(s){
+  var ap=document.getElementById('wifi-pill-ap');
+  var sta=document.getElementById('wifi-pill-sta');
+  var pen=document.getElementById('wifi-pill-pending');
+  if(!ap||!sta||!pen||!s)return;
+  ap.className='wifi-pill'+(s.ap&&s.ap.enabled?' ok':'');
+  ap.textContent=(s.ap&&s.ap.enabled)?'AP Online':'AP Offline';
+  sta.className='wifi-pill'+(s.sta&&s.sta.connected?' ok':' warn');
+  sta.textContent=(s.sta&&s.sta.connected)?'STA Connected':'STA Not Connected';
+  var pending=!!s.pendingRestart;
+  pen.className='wifi-pill'+(pending?' warn':' ok');
+  pen.textContent=pending?'Pending Restart':'No Pending Changes';
+}
+
+function renderWiFiCurrentConfig(c){
+  var live=document.getElementById('wf-live'); if(!live||!c)return;
+  var ap=(c.ap||{}), sta=(c.sta||{});
+  var apIp=ap.ip||'-';
+  var fallbackApIp=apIp;
+  var staSsid=sta.ssid||'-';
+  var mdnsHost=(c.host&&c.host.length)?(c.host+'.local'):'-';
+  live.innerHTML='AP IP: <b style="color:var(--tx)">'+apIp+'</b> &middot; Fallback AP IP: <b style="color:var(--tx)">'+fallbackApIp+'</b><br>'
+    +'Home Wi-Fi SSID: <b style="color:var(--tx)">'+staSsid+'</b><br>'
+    +'mDNS: <b style="color:var(--tx)">'+mdnsHost+'</b>';
+}
+
+function loadWiFiConfig(){
+  fetch('/netcfg').then(function(r){return r.json();}).then(function(d){
+    wifiCfgCache=d;
+    var ap=d.ap||{},sta=d.sta||{};
+    var apS=document.getElementById('wf-ap-ssid'); if(apS) apS.value=ap.ssid||'';
+    var apI=document.getElementById('wf-ap-ip'); if(apI) apI.value=ap.ip||'4.3.2.1';
+    var staS=document.getElementById('wf-sta-ssid'); if(staS) staS.value=sta.ssid||'';
+    var host=document.getElementById('wf-host'); if(host) host.value=d.host||'';
+    var apP=document.getElementById('wf-ap-pass'); if(apP) apP.value='';
+    var staP=document.getElementById('wf-sta-pass'); if(staP) staP.value='';
+    maskMeta('wf-ap-pass-meta',ap.passLen||0,'AP Password');
+    maskMeta('wf-sta-pass-meta',sta.passLen||0,'Router Password');
+    renderWiFiCurrentConfig(d);
+    if(d.pendingRestart!==undefined) updateWiFiPills({ap:{enabled:true},sta:{connected:false},pendingRestart:d.pendingRestart,hostname:d.host});
+  }).catch(function(){showToast('Wi-Fi config load failed');});
+}
+
+function loadNetStatus(){
+  fetch('/netstatus').then(function(r){return r.json();}).then(function(d){
+    wifiStatusCache=d;
+    if(wifiModalOpen){
+      updateWiFiPills(d);
+    }
+  }).catch(function(){});
+}
+
+function saveApConfig(){
+  var ssid=(document.getElementById('wf-ap-ssid').value||'').trim();
+  var pass=(document.getElementById('wf-ap-pass').value||'').trim();
+  var ip=(document.getElementById('wf-ap-ip').value||'').trim();
+  if(ssid.length<1||ssid.length>32){showToast('Invalid AP SSID');return;}
+  if(pass.length>0&&(pass.length<8||pass.length>63)){showToast('AP pass must be 8-63 or empty');return;}
+  if(pass.length===0&&wifiCfgCache&&wifiCfgCache.ap&&wifiCfgCache.ap.passLen>0){showToast('Enter AP password to keep/update security');return;}
+  fetch('/setwifiap?ssid='+encodeURIComponent(ssid)+'&pass='+encodeURIComponent(pass)+'&ip='+encodeURIComponent(ip))
+    .then(function(r){return r.text().then(function(t){return{ok:r.ok,text:t};});})
+    .then(function(x){
+      if(!x.ok){showToast(x.text||'AP save failed');return;}
+      showToast('AP settings saved');
+      loadWiFiConfig();
+      loadNetStatus();
+    }).catch(function(){showToast('AP save failed');});
+}
+
+function saveStaConfig(){
+  var ssid=(document.getElementById('wf-sta-ssid').value||'').trim();
+  var pass=(document.getElementById('wf-sta-pass').value||'').trim();
+  if(ssid.length>32){showToast('Invalid router SSID');return;}
+  if(ssid.length>0&&pass.length===0&&wifiCfgCache&&wifiCfgCache.sta&&wifiCfgCache.sta.passLen>0){showToast('Enter router password to keep/update STA');return;}
+  if(pass.length>0&&(pass.length<8||pass.length>63)){showToast('Router pass must be 8-63 or empty');return;}
+  fetch('/setwifista?ssid='+encodeURIComponent(ssid)+'&pass='+encodeURIComponent(pass))
+    .then(function(r){return r.text().then(function(t){return{ok:r.ok,text:t};});})
+    .then(function(x){
+      if(!x.ok){showToast(x.text||'STA save failed');return;}
+      showToast('Home Wi-Fi saved');
+      loadWiFiConfig();
+      loadNetStatus();
+    }).catch(function(){showToast('STA save failed');});
+}
+
+function forgetStaConfig(){
+  showActionModal('Forget Home Wi-Fi','This will clear saved router credentials. Continue?','Forget',true,function(){
+    fetch('/forgetsta').then(function(r){return r.text().then(function(t){return{ok:r.ok,text:t};});})
+      .then(function(x){
+        if(!x.ok){showToast(x.text||'Forget failed');return;}
+        showToast('Home Wi-Fi forgotten');
+        loadWiFiConfig();
+        loadNetStatus();
+      }).catch(function(){showToast('Forget failed');});
+  });
+}
+
+function saveHostConfig(){
+  var host=(document.getElementById('wf-host').value||'').trim().toLowerCase();
+  if(!/^[a-z0-9-]{1,32}$/.test(host)){showToast('Invalid hostname');return;}
+  fetch('/sethost?name='+encodeURIComponent(host))
+    .then(function(r){return r.text().then(function(t){return{ok:r.ok,text:t};});})
+    .then(function(x){
+      if(!x.ok){showToast(x.text||'Host save failed');return;}
+      showToast('Hostname saved');
+      loadWiFiConfig();
+      loadNetStatus();
+    }).catch(function(){showToast('Host save failed');});
+}
+
+function applyNetworkChanges(){
+  showActionModal('Apply Network Changes','Apply pending network changes and reboot now?','Apply & Reboot',false,function(){
+    fetch('/applynetwork').then(function(r){return r.text().then(function(t){return{ok:r.ok,text:t};});})
+      .then(function(x){
+        if(!x.ok){showToast(x.text||'Apply failed');return;}
+        showToast('Applying network config...');
+      }).catch(function(){showToast('Apply failed');});
+  });
+}
+
+function discardNetworkChanges(){
+  showActionModal('Discard Staged Changes','Discard all staged network changes and restore currently applied configuration?','Discard',true,function(){
+    fetch('/discardnetwork').then(function(r){return r.text().then(function(t){return{ok:r.ok,text:t};});})
+      .then(function(x){
+        if(!x.ok){showToast(x.text||'Discard failed');return;}
+        showToast('Staged changes discarded');
+        loadWiFiConfig();
+        loadNetStatus();
+      }).catch(function(){showToast('Discard failed');});
+  });
+}
 
 function onSensInput(){
   var sq=document.getElementById('sl-quiet'), sn=document.getElementById('sl-noisy');
@@ -890,20 +1308,9 @@ function applyStatus(d){
     if(a1) a1.classList.toggle('active',d.anim===1);
   }
   // Sync audio tunings
-  if(d.audio && !audioModalOpen){
-    var sq=document.getElementById('sl-quiet'); if(sq) sq.value=d.audio.q;
-    var sn=document.getElementById('sl-noisy'); if(sn) sn.value=d.audio.n;
-    var sf0=document.getElementById('sl-fb0'); if(sf0) sf0.value=d.audio.f[0];
-    var sf1=document.getElementById('sl-fb1'); if(sf1) sf1.value=d.audio.f[1];
-    var sf2=document.getElementById('sl-fb2'); if(sf2) sf2.value=d.audio.f[2];
-    var sf3=document.getElementById('sl-fb3'); if(sf3) sf3.value=d.audio.f[3];
-    
-    var lq=document.getElementById('lbl-quiet'); if(lq) lq.textContent=d.audio.q;
-    var ln=document.getElementById('lbl-noisy'); if(ln) ln.textContent=d.audio.n;
-    var lf0=document.getElementById('lbl-fb0'); if(lf0) lf0.textContent=d.audio.f[0]+' Hz';
-    var lf1=document.getElementById('lbl-fb1'); if(lf1) lf1.textContent=d.audio.f[1]+' Hz';
-    var lf2=document.getElementById('lbl-fb2'); if(lf2) lf2.textContent=d.audio.f[2]+' Hz';
-    var lf3=document.getElementById('lbl-fb3'); if(lf3) lf3.textContent=d.audio.f[3]+' Hz';
+  if(d.audio){
+    lastAudioSnapshot={q:d.audio.q,n:d.audio.n,f:[d.audio.f[0],d.audio.f[1],d.audio.f[2],d.audio.f[3]]};
+    if(!audioModalOpen) applyAudioSnapshotToControls(lastAudioSnapshot);
   }
   // Cache profile data for the custom editor
   if(d.allProfiles)allProfiles=d.allProfiles;
@@ -934,6 +1341,8 @@ function loadStatus(){
 window.addEventListener('load',function(){
   loadStatus();
   setInterval(loadStatus,3000);
+  setInterval(loadNetStatus,3000);
+  setInterval(function(){if(sysModalOpen)loadSysInfo();},3000);
   // Wire canvas picker events
   var cv=document.getElementById('picker-canvas');
   if(cv){

@@ -92,6 +92,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .inp-rgb{background:var(--sf2);border:1px solid var(--bd);border-radius:7px;color:var(--tx);font-size:.85rem;font-weight:600;padding:8px 4px;text-align:center;outline:none;width:100%;-moz-appearance:textfield;transition:border-color .15s}
 .inp-rgb:focus{border-color:var(--accent)}
 .inp-rgb::-webkit-outer-spin-button,.inp-rgb::-webkit-inner-spin-button{-webkit-appearance:none}
+/* settings */
+.setting-item{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;background:var(--sf2);border-radius:10px;margin-bottom:8px;cursor:pointer;transition:background .15s}
+.setting-item:hover{background:var(--bd)}
+.setting-item span{font-size:.9rem;font-weight:600}
+.setting-item .chev{color:var(--dim);font-size:1.2rem}
+.text-danger{color:#ff4a4a}
+.about-content{display:flex;flex-direction:column;align-items:center;padding:24px 20px;text-align:center}
+.about-content h2{margin:0 0 8px 0;font-size:1.4rem;color:var(--tx)}
+.about-content p{margin:0 0 16px 0;font-size:.85rem;color:var(--dim);line-height:1.5}
+.about-team{font-size:.8rem;color:var(--dim);margin-bottom:24px;line-height:1.6}
+.about-team b{color:var(--tx)}
+.gh-btn{display:flex;align-items:center;gap:8px;background:#24292e;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-size:.9rem;font-weight:600;transition:background .15s}
+.gh-btn:hover{background:#2f363d}
 </style>
 </head>
 <body>
@@ -149,6 +162,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
         </div>
       </div>
 
+      <!-- Animation Style -->
+      <div class="sec">
+        <div class="sec-title">Animation</div>
+        <div class="mode-row">
+          <div class="mdbtn" id="anim-0" onclick="setAnim(0)">
+            <div class="mdindicator"></div>
+            <span class="mdlabel">Solid</span>
+          </div>
+          <div class="mdbtn" id="anim-1" onclick="setAnim(1)">
+            <div class="mdindicator"></div>
+            <span class="mdlabel">Matrix</span>
+          </div>
+        </div>
+      </div>
+
       <!-- Mode selector -->
       <div class="sec">
         <div class="sec-title">Profile</div>
@@ -177,10 +205,48 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
   <!-- SETTINGS -->
   <div id="p-settings" class="panel">
     <div class="ph"><h2>Settings</h2></div>
-    <div class="empty">
-      <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-      <h3>Settings</h3>
-      <p>Device configuration options will be available here in a future update.</p>
+    <div style="flex:1;overflow-y:auto;padding-top:20px;padding-bottom:30px;">
+      
+      <div class="sec">
+        <div class="sec-title">Device</div>
+        <div class="setting-item" onclick="openSensModal()">
+          <span>Microphone Sensitivity</span>
+          <span class="chev">&#8250;</span>
+        </div>
+        <div class="setting-item" onclick="openFreqModal()">
+          <span>Advanced Frequency Tuning</span>
+          <span class="chev">&#8250;</span>
+        </div>
+        <div class="setting-item" onclick="showFeatureModal('Wi-Fi Configurator')">
+          <span>Wi-Fi Configurator</span>
+          <span class="chev">&#8250;</span>
+        </div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-title">System</div>
+        <div class="setting-item" onclick="showFeatureModal('System Specifications')">
+          <span>System Specifications</span>
+          <span class="chev">&#8250;</span>
+        </div>
+        <div class="setting-item" onclick="rebootDevice()">
+          <span>Reboot Device</span>
+          <span class="chev">&#8250;</span>
+        </div>
+        <div class="setting-item text-danger" onclick="factoryReset()">
+          <span>Factory Reset</span>
+          <span class="chev">&#8250;</span>
+        </div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-title">Information</div>
+        <div class="setting-item" onclick="openAbout()">
+          <span>About</span>
+          <span class="chev">&#8250;</span>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -188,6 +254,114 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 
 <!-- Toast notification -->
 <div id="toast" class="toast">&#10003; Profile Saved</div>
+
+<!-- About Modal -->
+<div id="about-modal" style="display:none;position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.75);align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--sf);border:1px solid var(--bd);border-radius:16px;width:min(340px,100%);overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 16px 14px;border-bottom:1px solid var(--bd)">
+      <span style="font-size:.96rem;font-weight:700">About</span>
+      <button onclick="closeAbout()" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--bd);background:var(--sf2);color:var(--tx);font-size:1.1rem;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center">&times;</button>
+    </div>
+    <div class="about-content">
+      <h2>Emotion Lamp</h2>
+      <p>An interactive, audio-reactive smart lamp built with an ESP32, INMP441 I2S microphone, and WS2812B LEDs. Designed for dynamic multi-profile mood lighting.</p>
+      <div class="about-team">
+        Created by:<br>
+        <b>Adyan Shaikh, Abdul Rehman Choudhary, Mohammed Sadriwala, and Mugaira Pathan</b>
+      </div>
+      <a href="https://github.com/adyan5786/Emotion-Lamp" target="_blank" class="gh-btn">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+        View on GitHub
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- Feature Modal -->
+<div id="feature-modal" style="display:none;position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.75);align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--sf);border:1px solid var(--bd);border-radius:16px;width:min(340px,100%);overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 16px 14px;border-bottom:1px solid var(--bd)">
+      <span id="feature-title" style="font-size:.96rem;font-weight:700">Feature</span>
+      <button onclick="closeFeatureModal()" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--bd);background:var(--sf2);color:var(--tx);font-size:1.1rem;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center">&times;</button>
+    </div>
+    <div class="about-content">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--dim)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:16px"><circle cx="12" cy="12" r="10"/><polyline points="12 8 12 12 14 14"/></svg>
+      <h2>Coming Soon</h2>
+      <p>The <b id="feature-name" style="color:var(--tx)"></b> functionality will be available in a future firmware update.</p>
+      <button onclick="closeFeatureModal()" class="save-btn" style="width:100%;margin-top:8px">Got it</button>
+    </div>
+  </div>
+</div>
+
+<!-- Sensitivity Modal -->
+<div id="sens-modal" style="display:none;position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.75);align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--sf);border:1px solid var(--bd);border-radius:16px;width:min(340px,100%);overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 16px 14px;border-bottom:1px solid var(--bd)">
+      <span style="font-size:.96rem;font-weight:700">Microphone Sensitivity</span>
+      <button onclick="closeSensModal()" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--bd);background:var(--sf2);color:var(--tx);font-size:1.1rem;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center">&times;</button>
+    </div>
+    <div style="padding:20px 16px">
+      <div style="margin-bottom:20px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+          <span style="font-size:.85rem;color:var(--dim)">Quiet Filter (RMS)</span>
+          <span id="lbl-quiet" style="font-size:.85rem;font-weight:700;color:var(--tx)">150</span>
+        </div>
+        <input type="range" id="sl-quiet" class="slider" min="0" max="500" value="150" oninput="onSensInput()">
+        <div style="font-size:.7rem;color:var(--dim);margin-top:6px;line-height:1.4">Ignore background noise below this volume.</div>
+      </div>
+      <div style="margin-bottom:20px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+          <span style="font-size:.85rem;color:var(--dim)">Loudness Cap (RMS)</span>
+          <span id="lbl-noisy" style="font-size:.85rem;font-weight:700;color:var(--tx)">1800</span>
+        </div>
+        <input type="range" id="sl-noisy" class="slider" min="500" max="8000" step="50" value="1800" oninput="onSensInput()">
+        <div style="font-size:.7rem;color:var(--dim);margin-top:6px;line-height:1.4">Hit max brightness at this volume.</div>
+      </div>
+      <button onclick="saveAudioTuning()" class="save-btn" style="width:100%">Save Sensitivity</button>
+    </div>
+  </div>
+</div>
+
+<!-- Frequency Tuning Modal -->
+<div id="freq-modal" style="display:none;position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.75);align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--sf);border:1px solid var(--bd);border-radius:16px;width:min(340px,100%);overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 16px 14px;border-bottom:1px solid var(--bd)">
+      <span style="font-size:.96rem;font-weight:700">Frequency Tuning</span>
+      <button onclick="closeFreqModal()" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--bd);background:var(--sf2);color:var(--tx);font-size:1.1rem;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center">&times;</button>
+    </div>
+    <div style="padding:20px 16px;max-height:60vh;overflow-y:auto">
+      <div style="margin-bottom:20px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+          <span style="font-size:.85rem;color:var(--dim)">Bass &#8594; Low Speech</span>
+          <span id="lbl-fb0" style="font-size:.85rem;font-weight:700;color:var(--tx)">300 Hz</span>
+        </div>
+        <input type="range" id="sl-fb0" class="slider" min="0" max="300" step="10" value="300" oninput="onFreqInput(0)">
+      </div>
+      <div style="margin-bottom:20px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+          <span style="font-size:.85rem;color:var(--dim)">Low Speech &#8594; Mid</span>
+          <span id="lbl-fb1" style="font-size:.85rem;font-weight:700;color:var(--tx)">600 Hz</span>
+        </div>
+        <input type="range" id="sl-fb1" class="slider" min="300" max="600" step="10" value="600" oninput="onFreqInput(1)">
+      </div>
+      <div style="margin-bottom:20px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+          <span style="font-size:.85rem;color:var(--dim)">Mid &#8594; High Speech</span>
+          <span id="lbl-fb2" style="font-size:.85rem;font-weight:700;color:var(--tx)">900 Hz</span>
+        </div>
+        <input type="range" id="sl-fb2" class="slider" min="600" max="1200" step="10" value="900" oninput="onFreqInput(2)">
+      </div>
+      <div style="margin-bottom:20px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+          <span style="font-size:.85rem;color:var(--dim)">High Speech &#8594; Shrill</span>
+          <span id="lbl-fb3" style="font-size:.85rem;font-weight:700;color:var(--tx)">1300 Hz</span>
+        </div>
+        <input type="range" id="sl-fb3" class="slider" min="1200" max="2500" step="10" value="1300" oninput="onFreqInput(3)">
+      </div>
+      <button onclick="saveAudioTuning()" class="save-btn" style="width:100%">Save Frequencies</button>
+    </div>
+  </div>
+</div>
 
 <!-- Unsaved changes warning modal -->
 <div id="warn-modal" style="display:none;position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.75);align-items:center;justify-content:center;padding:20px">
@@ -202,6 +376,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
     <div style="display:flex;gap:10px;padding:0 20px 20px">
       <button onclick="warnStay()" style="flex:1;padding:12px;border-radius:10px;border:1px solid var(--bd);background:var(--sf2);color:var(--tx);font-size:.85rem;font-weight:600;cursor:pointer">Stay</button>
       <button onclick="warnLeave()" style="flex:1;padding:12px;border-radius:10px;border:1px solid #7a3a3a;background:rgba(180,60,60,.12);color:#e07070;font-size:.85rem;font-weight:600;cursor:pointer">Exit Anyway</button>
+    </div>
+  </div>
+</div>
+<!-- Action confirmation modal -->
+<div id="action-modal" style="display:none;position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.75);align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--sf);border:1px solid var(--bd);border-radius:16px;width:min(320px,100%);overflow:hidden">
+    <div style="padding:24px 20px 20px;text-align:center">
+      <svg id="action-icon" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:12px;color:var(--dim)"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <h3 id="action-title" style="margin:0 0 8px 0;font-size:1.1rem;color:var(--tx)">Action</h3>
+      <p id="action-msg" style="margin:0;font-size:.85rem;color:var(--dim);line-height:1.5">Are you sure?</p>
+    </div>
+    <div style="display:flex;gap:10px;padding:0 20px 20px">
+      <button onclick="closeActionModal()" style="flex:1;padding:12px;border-radius:10px;border:1px solid var(--bd);background:var(--sf2);color:var(--tx);font-size:.9rem;font-weight:600;cursor:pointer">Cancel</button>
+      <button id="action-btn" onclick="confirmAction()" style="flex:1;padding:12px;border-radius:10px;font-size:.9rem;font-weight:600;cursor:pointer">Confirm</button>
     </div>
   </div>
 </div>
@@ -472,6 +660,13 @@ function saveZone(){
   closeModal();
 }
 
+// ── Animation selector ────────────────────────────────────────
+function setAnim(anim){
+  document.getElementById('anim-0').classList.toggle('active',anim===0);
+  document.getElementById('anim-1').classList.toggle('active',anim===1);
+  fetch('/setanim?a='+anim).catch(function(){});
+}
+
 // ── Mode selector (numeric: 0=default, 1-5=custom) ────────────────
 // skipFetch=true when called from applyStatus (UI-only sync, no server call).
 function selectMode(mode,skipFetch){
@@ -607,6 +802,72 @@ function saveProfile(){
     }).catch(function(){});
 }
 
+// ── Settings ──────────────────────────────────────────────────
+var audioModalOpen=false;
+function openAbout(){document.getElementById('about-modal').style.display='flex';}
+function closeAbout(){document.getElementById('about-modal').style.display='none';}
+function openSensModal(){document.getElementById('sens-modal').style.display='flex'; audioModalOpen=true;}
+function closeSensModal(){document.getElementById('sens-modal').style.display='none'; audioModalOpen=false;}
+function openFreqModal(){document.getElementById('freq-modal').style.display='flex'; audioModalOpen=true;}
+function closeFreqModal(){document.getElementById('freq-modal').style.display='none'; audioModalOpen=false;}
+function showFeatureModal(name){document.getElementById('feature-name').textContent=name;document.getElementById('feature-title').textContent=name;document.getElementById('feature-modal').style.display='flex';}
+function closeFeatureModal(){document.getElementById('feature-modal').style.display='none';}
+
+function onSensInput(){
+  var sq=document.getElementById('sl-quiet'), sn=document.getElementById('sl-noisy');
+  var vq=parseInt(sq.value), vn=parseInt(sn.value);
+  if(vq>=vn) sq.value=vn-10; // Cap quiet to always be lower than noisy
+  document.getElementById('lbl-quiet').textContent=sq.value;
+  document.getElementById('lbl-noisy').textContent=sn.value;
+}
+function onFreqInput(idx){
+  var s0=document.getElementById('sl-fb0'), s1=document.getElementById('sl-fb1'), s2=document.getElementById('sl-fb2'), s3=document.getElementById('sl-fb3');
+  var v0=parseInt(s0.value), v1=parseInt(s1.value), v2=parseInt(s2.value), v3=parseInt(s3.value);
+  if(idx===0){ if(v0>=v1) s0.value=v1-10; }
+  else if(idx===1){ if(v1<=v0) s1.value=v0+10; if(v1>=v2) s1.value=v2-10; }
+  else if(idx===2){ if(v2<=v1) s2.value=v1+10; if(v2>=v3) s2.value=v3-10; }
+  else if(idx===3){ if(v3<=v2) s3.value=v2+10; }
+  document.getElementById('lbl-fb0').textContent=s0.value+' Hz';
+  document.getElementById('lbl-fb1').textContent=s1.value+' Hz';
+  document.getElementById('lbl-fb2').textContent=s2.value+' Hz';
+  document.getElementById('lbl-fb3').textContent=s3.value+' Hz';
+}
+
+function saveAudioTuning(){
+  var q=document.getElementById('sl-quiet').value;
+  var n=document.getElementById('sl-noisy').value;
+  var f0=document.getElementById('sl-fb0').value;
+  var f1=document.getElementById('sl-fb1').value;
+  var f2=document.getElementById('sl-fb2').value;
+  var f3=document.getElementById('sl-fb3').value;
+  fetch('/setaudio?q='+q+'&n='+n+'&f0='+f0+'&f1='+f1+'&f2='+f2+'&f3='+f3)
+    .then(function(){
+      showToast('\u2713  Tuning Saved');
+      closeSensModal(); closeFreqModal();
+    }).catch(function(){});
+}
+var pendingAction=null;
+function showActionModal(title,msg,btnText,danger,actionFn){
+  document.getElementById('action-title').textContent=title;
+  document.getElementById('action-msg').textContent=msg;
+  var btn=document.getElementById('action-btn'), ico=document.getElementById('action-icon');
+  btn.textContent=btnText;
+  if(danger){
+    btn.style.background='rgba(180,60,60,.12)'; btn.style.color='#e07070'; btn.style.border='1px solid #7a3a3a';
+    ico.style.color='#e07070';
+  } else {
+    btn.style.background='var(--sf2)'; btn.style.color='var(--tx)'; btn.style.border='1px solid var(--bd)';
+    ico.style.color='var(--dim)';
+  }
+  pendingAction=actionFn;
+  document.getElementById('action-modal').style.display='flex';
+}
+function closeActionModal(){document.getElementById('action-modal').style.display='none'; pendingAction=null;}
+function confirmAction(){if(pendingAction)pendingAction(); closeActionModal();}
+
+function rebootDevice(){showActionModal('Reboot Device','Are you sure you want to reboot the lamp?','Reboot',false,function(){fetch('/reboot').then(function(){showToast('Rebooting...');}).catch(function(){});});}
+function factoryReset(){showActionModal('Factory Reset','WARNING: This will delete all custom profiles and reset to factory defaults. Continue?','Reset',true,function(){fetch('/reset').then(function(){showToast('Resetting...');}).catch(function(){});});}
+
 // ── Brightness slider ─────────────────────────────────────────
 function onBright(val){
   sliderInteracted=true;
@@ -622,6 +883,28 @@ function applyStatus(d){
     document.getElementById('brightSlider').value=d.brightness;
     document.getElementById('bval').textContent=d.brightness;
   }
+  // Sync animation buttons
+  if(d.anim!==undefined){
+    var a0=document.getElementById('anim-0'), a1=document.getElementById('anim-1');
+    if(a0) a0.classList.toggle('active',d.anim===0);
+    if(a1) a1.classList.toggle('active',d.anim===1);
+  }
+  // Sync audio tunings
+  if(d.audio && !audioModalOpen){
+    var sq=document.getElementById('sl-quiet'); if(sq) sq.value=d.audio.q;
+    var sn=document.getElementById('sl-noisy'); if(sn) sn.value=d.audio.n;
+    var sf0=document.getElementById('sl-fb0'); if(sf0) sf0.value=d.audio.f[0];
+    var sf1=document.getElementById('sl-fb1'); if(sf1) sf1.value=d.audio.f[1];
+    var sf2=document.getElementById('sl-fb2'); if(sf2) sf2.value=d.audio.f[2];
+    var sf3=document.getElementById('sl-fb3'); if(sf3) sf3.value=d.audio.f[3];
+    
+    var lq=document.getElementById('lbl-quiet'); if(lq) lq.textContent=d.audio.q;
+    var ln=document.getElementById('lbl-noisy'); if(ln) ln.textContent=d.audio.n;
+    var lf0=document.getElementById('lbl-fb0'); if(lf0) lf0.textContent=d.audio.f[0]+' Hz';
+    var lf1=document.getElementById('lbl-fb1'); if(lf1) lf1.textContent=d.audio.f[1]+' Hz';
+    var lf2=document.getElementById('lbl-fb2'); if(lf2) lf2.textContent=d.audio.f[2]+' Hz';
+    var lf3=document.getElementById('lbl-fb3'); if(lf3) lf3.textContent=d.audio.f[3]+' Hz';
+  }
   // Cache profile data for the custom editor
   if(d.allProfiles)allProfiles=d.allProfiles;
   if(d.profileNames)profileNames=d.profileNames;
@@ -633,7 +916,8 @@ function applyStatus(d){
     var pb=document.getElementById('profile-badge');
     if(pb){
       var pLabel=isCustom?(profileNames&&profileNames[d.mode-1]?profileNames[d.mode-1]:('Custom '+d.mode)):'Default';
-      pb.textContent='Profile: '+pLabel;
+      var aLabel=(d.anim===1)?'Matrix':'Solid';
+      pb.textContent='Profile: '+pLabel+' | Anim: '+aLabel;
       pb.style.borderColor=isCustom?'rgba(184,160,240,.4)':'var(--bd)';
       pb.style.color=isCustom?'var(--accent)':'var(--dim)';
     }

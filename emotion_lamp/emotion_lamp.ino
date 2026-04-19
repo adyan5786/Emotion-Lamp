@@ -44,7 +44,17 @@ float smoothedFreq = 200.0f;
 volatile bool    audioReactiveEnabled = false; // always start in standby
 volatile uint8_t userBrightness = BRIGHT_MAX; // overwritten by NVS on boot
 
+// ── Audio Tuning Variables (Loaded from NVS, defaults from config.h) ──
+int quietThresh = QUIET_THRESHOLD;
+int noisyThresh = NOISY_THRESHOLD;
+int freqBands[4] = { FREQ_BAND_1, FREQ_BAND_2, FREQ_BAND_3, FREQ_BAND_4 };
+
 // ── Persistent settings types ─────────────────────────────────
+enum AnimStyle { ANIM_SOLID = 0, ANIM_MATRIX = 1 };
+AnimStyle activeAnim = ANIM_SOLID;
+unsigned long lastMatrixUpdate = 0;
+#define MATRIX_SPEED_MS 40
+
 enum LampMode : uint8_t {
   MODE_DEFAULT=0,
   MODE_CUSTOM1=1, MODE_CUSTOM2=2, MODE_CUSTOM3=3,
@@ -148,6 +158,13 @@ void loadPrefs() {
   prefs.begin("elamp", true);
   userBrightness = prefs.getUChar("brightness", BRIGHT_MAX);
   activeMode     = (LampMode)constrain(prefs.getUChar("mode", 0), 0, 5);
+  activeAnim     = (AnimStyle)constrain(prefs.getUChar("anim", 0), 0, 1);
+  quietThresh    = prefs.getInt("quiet", QUIET_THRESHOLD);
+  noisyThresh    = prefs.getInt("noisy", NOISY_THRESHOLD);
+  freqBands[0]   = prefs.getInt("fb0", FREQ_BAND_1);
+  freqBands[1]   = prefs.getInt("fb1", FREQ_BAND_2);
+  freqBands[2]   = prefs.getInt("fb2", FREQ_BAND_3);
+  freqBands[3]   = prefs.getInt("fb3", FREQ_BAND_4);
   for (int p = 0; p < 5; p++) {
     char key[10]; sprintf(key, "profile%d", p);
     size_t got = prefs.getBytes(key, &customProfiles[p], sizeof(customProfiles[p]));
@@ -165,6 +182,13 @@ void savePrefs() {
   prefs.begin("elamp", false);
   prefs.putUChar("brightness", (uint8_t)userBrightness);
   prefs.putUChar("mode",       (uint8_t)activeMode);
+  prefs.putUChar("anim",       (uint8_t)activeAnim);
+  prefs.putInt("quiet",        quietThresh);
+  prefs.putInt("noisy",        noisyThresh);
+  prefs.putInt("fb0",          freqBands[0]);
+  prefs.putInt("fb1",          freqBands[1]);
+  prefs.putInt("fb2",          freqBands[2]);
+  prefs.putInt("fb3",          freqBands[3]);
   for (int p = 0; p < 5; p++) {
     char key[10]; sprintf(key, "profile%d", p);
     prefs.putBytes(key, &customProfiles[p], sizeof(customProfiles[p]));
@@ -182,17 +206,17 @@ CRGB lerpColor(CRGB a, CRGB b, float t) {
 
 CRGB freqToColor(float freq) {
   // Uses activeColors[] so Default and Custom modes both work
-  if (freq < FREQ_BAND_1) return activeColors[0];
-  if (freq < FREQ_BAND_2) {
-    float t=(freq-FREQ_BAND_1)/(float)(FREQ_BAND_2-FREQ_BAND_1);
+  if (freq < freqBands[0]) return activeColors[0];
+  if (freq < freqBands[1]) {
+    float t=(freq-freqBands[0])/(float)(freqBands[1]-freqBands[0]);
     return lerpColor(activeColors[0], activeColors[1], constrain(t,0.0f,1.0f));
   }
-  if (freq < FREQ_BAND_3) {
-    float t=(freq-FREQ_BAND_2)/(float)(FREQ_BAND_3-FREQ_BAND_2);
+  if (freq < freqBands[2]) {
+    float t=(freq-freqBands[1])/(float)(freqBands[2]-freqBands[1]);
     return lerpColor(activeColors[1], activeColors[2], constrain(t,0.0f,1.0f));
   }
-  if (freq < FREQ_BAND_4) {
-    float t=(freq-FREQ_BAND_3)/(float)(FREQ_BAND_4-FREQ_BAND_3);
+  if (freq < freqBands[3]) {
+    float t=(freq-freqBands[2])/(float)(freqBands[3]-freqBands[2]);
     return lerpColor(activeColors[2], activeColors[3], constrain(t,0.0f,1.0f));
   }
   return activeColors[4];
@@ -202,16 +226,16 @@ void updateLamp(float rms, float freq) {
   CRGB    targetColor;
   uint8_t targetBright;
 
-  if (rms < QUIET_THRESHOLD) {
+  if (rms < quietThresh) {
     targetColor  = CRGB(255, 255, 255);
     targetBright = BRIGHT_QUIET;
-  } else if (rms >= NOISY_THRESHOLD) {
+  } else if (rms >= noisyThresh) {
     targetColor  = activeColors[4];  // loud override colour from active profile
     targetBright = BRIGHT_MAX;
   } else {
     targetColor  = freqToColor(freq);
     targetBright = (uint8_t)constrain(
-      map((long)rms, QUIET_THRESHOLD, NOISY_THRESHOLD, BRIGHT_ACTIVE, BRIGHT_MAX),
+      map((long)rms, quietThresh, noisyThresh, BRIGHT_ACTIVE, BRIGHT_MAX),
       BRIGHT_ACTIVE, BRIGHT_MAX);
   }
 
@@ -222,7 +246,22 @@ void updateLamp(float rms, float freq) {
   // affects ALL states (quiet, active, loud) proportionally.
   uint8_t finalBright = (uint8_t)((uint32_t)currentBright * userBrightness / 255);
   FastLED.setBrightness(finalBright);
-  fill_solid(leds, NUM_LEDS, currentColor);
+
+  if (activeAnim == ANIM_SOLID) {
+    fill_solid(leds, NUM_LEDS, currentColor);
+  } else {
+    // ANIM_MATRIX
+    if (millis() - lastMatrixUpdate > MATRIX_SPEED_MS) {
+      lastMatrixUpdate = millis();
+      // Shift all LEDs one step to the right (up the strip)
+      for (int i = NUM_LEDS - 1; i > 0; i--) {
+        leds[i] = leds[i - 1];
+      }
+      // Insert the newest colour at the beginning
+      leds[0] = currentColor;
+    }
+  }
+
   FastLED.show();
 }
 
@@ -251,8 +290,10 @@ void sendStatus(WiFiClient& client) {
   int  pos = 0;
   // Header
   pos += snprintf(json+pos, sizeof(json)-pos,
-    "{\"on\":%s,\"brightness\":%d,\"mode\":%d,",
-    audioReactiveEnabled?"true":"false", (int)userBrightness, (int)activeMode);
+    "{\"on\":%s,\"brightness\":%d,\"anim\":%d,\"mode\":%d,"
+    "\"audio\":{\"q\":%d,\"n\":%d,\"f\":[%d,%d,%d,%d]},",
+    audioReactiveEnabled?"true":"false", (int)userBrightness, (int)activeAnim, (int)activeMode,
+    quietThresh, noisyThresh, freqBands[0], freqBands[1], freqBands[2], freqBands[3]);
   // Profile names
   pos += snprintf(json+pos, sizeof(json)-pos, "\"profileNames\":[");
   for (int p = 0; p < 5; p++)
@@ -349,6 +390,16 @@ void processWebClients() {
     }
     client.print("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nOK");
 
+  // ── Route: /setanim?a=N (0=solid, 1=matrix)
+  } else if (req.indexOf("/setanim") != -1) {
+    int ai=req.indexOf("a=");
+    if (ai!=-1) {
+      activeAnim=(AnimStyle)constrain(req.substring(ai+2).toInt(),0,1);
+      savePrefs();
+      Serial.printf("[Web] Anim->%d\n",(int)activeAnim);
+    }
+    client.print("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nOK");
+
   // ── Route: /setname?p=N&name=... — update a profile's display name
   } else if (req.indexOf("/setname") != -1) {
     int pi=req.indexOf("p="), ni=req.indexOf("name=");
@@ -387,6 +438,41 @@ void processWebClients() {
       if((int)activeMode==p+1) applyActiveColors(); // re-apply if this is active profile
       Serial.printf("[Web] Profile %d discarded (reverted from NVS)\n",p);
     }
+    client.print("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nOK");
+
+  // ── Route: /reboot ───────────────────────────────────────────
+  } else if (req.indexOf("/reboot") != -1) {
+    client.print("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nOK");
+    client.flush(); delay(100); client.stop(); delay(400);
+    ESP.restart();
+
+  // ── Route: /reset ────────────────────────────────────────────
+  } else if (req.indexOf("/reset") != -1) {
+    prefs.begin("elamp", false);
+    prefs.clear();
+    prefs.end();
+    client.print("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nOK");
+    client.flush(); delay(100); client.stop(); delay(400);
+    ESP.restart();
+
+  // ── Route: /setaudio?q=..&n=..&f0=..&f1=..&f2=..&f3=.. ──────
+  } else if (req.indexOf("/setaudio") != -1) {
+    auto getInt = [](String r, String k, int def) {
+      int i = r.indexOf(k + "=");
+      if (i == -1) return def;
+      int e = r.indexOf('&', i);
+      if (e == -1) e = r.indexOf(' ', i);
+      if (e == -1) e = r.length();
+      return (int)r.substring(i + k.length() + 1).toInt();
+    };
+    quietThresh  = getInt(req, "q", quietThresh);
+    noisyThresh  = getInt(req, "n", noisyThresh);
+    freqBands[0] = getInt(req, "f0", freqBands[0]);
+    freqBands[1] = getInt(req, "f1", freqBands[1]);
+    freqBands[2] = getInt(req, "f2", freqBands[2]);
+    freqBands[3] = getInt(req, "f3", freqBands[3]);
+    savePrefs();
+    Serial.println("[Web] Audio tuning saved");
     client.print("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nOK");
 
   // ── Route: /off ────────────────────────────────────────────

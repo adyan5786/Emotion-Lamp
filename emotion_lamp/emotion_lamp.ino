@@ -21,6 +21,7 @@
 #include <WiFi.h>
 #include <FastLED.h>
 #include <arduinoFFT.h>
+#include <Preferences.h>   // ESP32 NVS — persists across power cycles
 #include "config.h"
 #include "webui.h"
 
@@ -40,10 +41,37 @@ WiFiServer server(80);
 float smoothedRMS  = 0.0f;
 float smoothedFreq = 200.0f;
 
-volatile bool    audioReactiveEnabled = true;
-// ★ User-controlled brightness cap (0-255). Slider sets this.
-//   Defaults to BRIGHT_MAX from config.h.
-volatile uint8_t userBrightness = BRIGHT_MAX;
+volatile bool    audioReactiveEnabled = false; // always start in standby
+volatile uint8_t userBrightness = BRIGHT_MAX; // overwritten by NVS on boot
+
+// ── Persistent settings types ─────────────────────────────────
+enum LampMode : uint8_t {
+  MODE_DEFAULT=0,
+  MODE_CUSTOM1=1, MODE_CUSTOM2=2, MODE_CUSTOM3=3,
+  MODE_CUSTOM4=4, MODE_CUSTOM5=5
+};
+
+// One colour profile = 5 zone colours + a name for future multi-profile support
+struct ZoneColor  { uint8_t r, g, b; };
+struct ColorProfile {
+  ZoneColor zones[5];
+  char      name[12];  // "Custom", "Night", etc. — ready for Phase 3B
+};
+
+// Factory defaults — mirrors the COL_ constants below
+// ★ Edit these to change what "Default" mode looks like
+static const ZoneColor DEFAULT_ZONES[5] = {
+  {  0, 150, 255},  // Zone 0: Bass
+  {100,   0, 255},  // Zone 1: Low Speech
+  {255,   0, 100},  // Zone 2: Mid Speech
+  {255,  50,   0},  // Zone 3: Upper Speech
+  {139,   0,   0},  // Zone 4: Loud / Shrill
+};
+
+volatile LampMode activeMode = MODE_DEFAULT;  // overwritten by NVS on boot
+ColorProfile      customProfiles[5];           // 5 custom profiles (Custom 1-5)
+CRGB              activeColors[5];             // what freqToColor() reads
+Preferences       prefs;                       // NVS handle
 
 // ── Section 1: I2S / Microphone ──────────────────────────────
 void setupI2S() {
@@ -92,12 +120,58 @@ double getDominantFreq() {
 }
 
 // ── Section 2: LED / Colour ───────────────────────────────────
-// Colour anchor per frequency zone — edit CRGB values to change a zone's colour
-static const CRGB COL_BLUE    = CRGB(  0, 150, 255);  // Bass          (calming light blue)
-static const CRGB COL_PURPLE  = CRGB(100,   0, 255);  // Low speech    (electric purple)
-static const CRGB COL_MAGENTA = CRGB(255,   0, 100);  // Mid speech    (vibrant magenta)
-static const CRGB COL_ORANGE  = CRGB(255,  50,   0);  // Upper speech  (fiery orange-red)
-static const CRGB COL_RED     = CRGB(139,   0,   0);  // Loud / shrill (intense dark red)
+// Static constants kept for reference; freqToColor() uses activeColors[].
+static const CRGB COL_BLUE    = CRGB(  0, 150, 255);
+static const CRGB COL_PURPLE  = CRGB(100,   0, 255);
+static const CRGB COL_MAGENTA = CRGB(255,   0, 100);
+static const CRGB COL_ORANGE  = CRGB(255,  50,   0);
+static const CRGB COL_RED     = CRGB(139,   0,   0);
+
+// Copy correct zone colours into activeColors[] based on current mode.
+void applyActiveColors() {
+  if (activeMode == MODE_DEFAULT) {
+    activeColors[0] = COL_BLUE;    activeColors[1] = COL_PURPLE;
+    activeColors[2] = COL_MAGENTA; activeColors[3] = COL_ORANGE;
+    activeColors[4] = COL_RED;
+  } else {
+    int pi = (int)activeMode - 1;           // 1..5 → 0..4
+    pi = constrain(pi, 0, 4);
+    for (int i = 0; i < 5; i++)
+      activeColors[i] = CRGB(customProfiles[pi].zones[i].r,
+                             customProfiles[pi].zones[i].g,
+                             customProfiles[pi].zones[i].b);
+  }
+}
+
+// ── NVS load / save ───────────────────────────────────────────
+void loadPrefs() {
+  prefs.begin("elamp", true);
+  userBrightness = prefs.getUChar("brightness", BRIGHT_MAX);
+  activeMode     = (LampMode)constrain(prefs.getUChar("mode", 0), 0, 5);
+  for (int p = 0; p < 5; p++) {
+    char key[10]; sprintf(key, "profile%d", p);
+    size_t got = prefs.getBytes(key, &customProfiles[p], sizeof(customProfiles[p]));
+    if (got != sizeof(customProfiles[p])) {
+      for (int z = 0; z < 5; z++) customProfiles[p].zones[z] = DEFAULT_ZONES[z];
+      char nm[12]; sprintf(nm, "Custom %d", p+1);
+      strncpy(customProfiles[p].name, nm, sizeof(customProfiles[p].name));
+    }
+  }
+  prefs.end();
+  Serial.println("[NVS] Prefs loaded.");
+}
+
+void savePrefs() {
+  prefs.begin("elamp", false);
+  prefs.putUChar("brightness", (uint8_t)userBrightness);
+  prefs.putUChar("mode",       (uint8_t)activeMode);
+  for (int p = 0; p < 5; p++) {
+    char key[10]; sprintf(key, "profile%d", p);
+    prefs.putBytes(key, &customProfiles[p], sizeof(customProfiles[p]));
+  }
+  prefs.end();
+  Serial.println("[NVS] Prefs saved.");
+}
 
 uint8_t lerpU8(uint8_t a, uint8_t b, float t) {
   return (uint8_t)((float)a + t * ((float)b - (float)a));
@@ -107,20 +181,21 @@ CRGB lerpColor(CRGB a, CRGB b, float t) {
 }
 
 CRGB freqToColor(float freq) {
-  if (freq < FREQ_BAND_1) return COL_BLUE;
+  // Uses activeColors[] so Default and Custom modes both work
+  if (freq < FREQ_BAND_1) return activeColors[0];
   if (freq < FREQ_BAND_2) {
     float t=(freq-FREQ_BAND_1)/(float)(FREQ_BAND_2-FREQ_BAND_1);
-    return lerpColor(COL_BLUE, COL_PURPLE, constrain(t,0.0f,1.0f));
+    return lerpColor(activeColors[0], activeColors[1], constrain(t,0.0f,1.0f));
   }
   if (freq < FREQ_BAND_3) {
     float t=(freq-FREQ_BAND_2)/(float)(FREQ_BAND_3-FREQ_BAND_2);
-    return lerpColor(COL_PURPLE, COL_MAGENTA, constrain(t,0.0f,1.0f));
+    return lerpColor(activeColors[1], activeColors[2], constrain(t,0.0f,1.0f));
   }
   if (freq < FREQ_BAND_4) {
     float t=(freq-FREQ_BAND_3)/(float)(FREQ_BAND_4-FREQ_BAND_3);
-    return lerpColor(COL_MAGENTA, COL_ORANGE, constrain(t,0.0f,1.0f));
+    return lerpColor(activeColors[2], activeColors[3], constrain(t,0.0f,1.0f));
   }
-  return COL_RED;
+  return activeColors[4];
 }
 
 void updateLamp(float rms, float freq) {
@@ -131,7 +206,7 @@ void updateLamp(float rms, float freq) {
     targetColor  = CRGB(255, 255, 255);
     targetBright = BRIGHT_QUIET;
   } else if (rms >= NOISY_THRESHOLD) {
-    targetColor  = COL_RED;
+    targetColor  = activeColors[4];  // loud override colour from active profile
     targetBright = BRIGHT_MAX;
   } else {
     targetColor  = freqToColor(freq);
@@ -172,42 +247,55 @@ void startWebServer() {
 // Sends JSON with current lamp state — fetched by the webpage on load
 // and periodically for live RMS/Freq display.
 void sendStatus(WiFiClient& client) {
-  char json[900];
-  int n = snprintf(json, sizeof(json),
-    "{\"on\":%s,\"brightness\":%d,\"rms\":%d,\"freq\":%d,"
+  char json[1600];
+  int  pos = 0;
+  // Header
+  pos += snprintf(json+pos, sizeof(json)-pos,
+    "{\"on\":%s,\"brightness\":%d,\"mode\":%d,",
+    audioReactiveEnabled?"true":"false", (int)userBrightness, (int)activeMode);
+  // Profile names
+  pos += snprintf(json+pos, sizeof(json)-pos, "\"profileNames\":[");
+  for (int p = 0; p < 5; p++)
+    pos += snprintf(json+pos, sizeof(json)-pos, "\"%s\"%s",
+      customProfiles[p].name, p<4?",":"");
+  pos += snprintf(json+pos, sizeof(json)-pos, "],");
+  // All 5 profiles colours
+  pos += snprintf(json+pos, sizeof(json)-pos, "\"allProfiles\":[");
+  for (int p = 0; p < 5; p++) {
+    pos += snprintf(json+pos, sizeof(json)-pos, "[");
+    for (int z = 0; z < 5; z++)
+      pos += snprintf(json+pos, sizeof(json)-pos, "[%d,%d,%d]%s",
+        (int)customProfiles[p].zones[z].r,
+        (int)customProfiles[p].zones[z].g,
+        (int)customProfiles[p].zones[z].b, z<4?",":"");
+    pos += snprintf(json+pos, sizeof(json)-pos, "]%s", p<4?",":"");
+  }
+  pos += snprintf(json+pos, sizeof(json)-pos, "],");
+  // Active zones (from activeColors[])
+  pos += snprintf(json+pos, sizeof(json)-pos,
     "\"zones\":["
-    "{\"name\":\"Quiet Room\",\"desc\":\"No sound detected (RMS < %d)\",\"hex\":\"#ffffff\",\"label\":\"(255, 255, 255)\"},"
-    "{\"name\":\"Bass\",\"desc\":\"Deep bass or rumble (below %d Hz)\",\"hex\":\"#%02x%02x%02x\",\"label\":\"(%d, %d, %d)\"},"
-    "{\"name\":\"Low Speech\",\"desc\":\"Low voice or hum (%d to %d Hz)\",\"hex\":\"#%02x%02x%02x\",\"label\":\"(%d, %d, %d)\"},"
-    "{\"name\":\"Mid Speech\",\"desc\":\"Normal conversation (%d to %d Hz)\",\"hex\":\"#%02x%02x%02x\",\"label\":\"(%d, %d, %d)\"},"
-    "{\"name\":\"Upper Speech\",\"desc\":\"Raised voice or high pitch (%d to %d Hz)\",\"hex\":\"#%02x%02x%02x\",\"label\":\"(%d, %d, %d)\"},"
-    "{\"name\":\"Loud / Shrill\",\"desc\":\"Loud override (RMS > %d or freq > %d Hz)\",\"hex\":\"#%02x%02x%02x\",\"label\":\"(%d, %d, %d)\"}"
+    "{\"name\":\"Quiet Room\",\"desc\":\"Silence or near-silence\",\"hex\":\"#ffffff\",\"label\":\"(255,255,255)\"},"
+    "{\"name\":\"Bass\",\"desc\":\"Deep bass and low rumbles\",\"hex\":\"#%02x%02x%02x\",\"label\":\"(%d,%d,%d)\"},"
+    "{\"name\":\"Low Speech\",\"desc\":\"Low voices and soft hums\",\"hex\":\"#%02x%02x%02x\",\"label\":\"(%d,%d,%d)\"},"
+    "{\"name\":\"Mid Speech\",\"desc\":\"Normal conversation\",\"hex\":\"#%02x%02x%02x\",\"label\":\"(%d,%d,%d)\"},"
+    "{\"name\":\"Upper Speech\",\"desc\":\"Raised voices and high tones\",\"hex\":\"#%02x%02x%02x\",\"label\":\"(%d,%d,%d)\"},"
+    "{\"name\":\"Loud/Shrill\",\"desc\":\"Loud or shrill sounds\",\"hex\":\"#%02x%02x%02x\",\"label\":\"(%d,%d,%d)\"}"
     "]}",
-    audioReactiveEnabled ? "true" : "false",
-    (int)userBrightness,
-    (int)smoothedRMS, (int)smoothedFreq,
-    QUIET_THRESHOLD,
-    FREQ_BAND_1,
-      (int)COL_BLUE.r,    (int)COL_BLUE.g,    (int)COL_BLUE.b,
-      (int)COL_BLUE.r,    (int)COL_BLUE.g,    (int)COL_BLUE.b,
-    FREQ_BAND_1, FREQ_BAND_2,
-      (int)COL_PURPLE.r,  (int)COL_PURPLE.g,  (int)COL_PURPLE.b,
-      (int)COL_PURPLE.r,  (int)COL_PURPLE.g,  (int)COL_PURPLE.b,
-    FREQ_BAND_2, FREQ_BAND_3,
-      (int)COL_MAGENTA.r, (int)COL_MAGENTA.g, (int)COL_MAGENTA.b,
-      (int)COL_MAGENTA.r, (int)COL_MAGENTA.g, (int)COL_MAGENTA.b,
-    FREQ_BAND_3, FREQ_BAND_4,
-      (int)COL_ORANGE.r,  (int)COL_ORANGE.g,  (int)COL_ORANGE.b,
-      (int)COL_ORANGE.r,  (int)COL_ORANGE.g,  (int)COL_ORANGE.b,
-    NOISY_THRESHOLD, FREQ_BAND_4,           // swapped to match new desc order
-      (int)COL_RED.r,     (int)COL_RED.g,     (int)COL_RED.b,
-      (int)COL_RED.r,     (int)COL_RED.g,     (int)COL_RED.b
-  );
+      (int)activeColors[0].r,(int)activeColors[0].g,(int)activeColors[0].b,
+      (int)activeColors[0].r,(int)activeColors[0].g,(int)activeColors[0].b,
+      (int)activeColors[1].r,(int)activeColors[1].g,(int)activeColors[1].b,
+      (int)activeColors[1].r,(int)activeColors[1].g,(int)activeColors[1].b,
+      (int)activeColors[2].r,(int)activeColors[2].g,(int)activeColors[2].b,
+      (int)activeColors[2].r,(int)activeColors[2].g,(int)activeColors[2].b,
+      (int)activeColors[3].r,(int)activeColors[3].g,(int)activeColors[3].b,
+      (int)activeColors[3].r,(int)activeColors[3].g,(int)activeColors[3].b,
+      (int)activeColors[4].r,(int)activeColors[4].g,(int)activeColors[4].b,
+      (int)activeColors[4].r,(int)activeColors[4].g,(int)activeColors[4].b);
   client.printf(
     "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
     "Access-Control-Allow-Origin: *\r\nContent-Length: %d\r\n"
-    "Connection: close\r\n\r\n", n);
-  client.write((uint8_t*)json, n);
+    "Connection: close\r\n\r\n", pos);
+  client.write((uint8_t*)json, pos);
 }
 
 // Main HTTP request handler — called every loop()
@@ -233,6 +321,71 @@ void processWebClients() {
       int sp = vs.indexOf(' '); if (sp != -1) vs = vs.substring(0, sp);
       userBrightness = (uint8_t)constrain(vs.toInt(), 0, 255);
       Serial.printf("[Web] Brightness -> %d\n", (int)userBrightness);
+      savePrefs();  // persist to NVS
+    }
+    client.print("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nOK");
+  // ── Route: /setzone?idx=N&r=R&g=G&b=B — stages colour in active profile
+  } else if (req.indexOf("/setzone") != -1) {
+    int ii=req.indexOf("idx="),ri=req.indexOf("&r="),gi=req.indexOf("&g="),bi=req.indexOf("&b=");
+    if (ii!=-1&&ri!=-1&&gi!=-1&&bi!=-1&&activeMode!=MODE_DEFAULT) {
+      int pi =constrain((int)activeMode-1,0,4);
+      int idx=constrain(req.substring(ii+4).toInt(),0,4);
+      int rv =constrain(req.substring(ri+3).toInt(),0,255);
+      int gv =constrain(req.substring(gi+3).toInt(),0,255);
+      int bv =constrain(req.substring(bi+3).toInt(),0,255);
+      customProfiles[pi].zones[idx]={(uint8_t)rv,(uint8_t)gv,(uint8_t)bv};
+      Serial.printf("[Web] Profile %d Zone %d staged->(%d,%d,%d)\n",pi,idx,rv,gv,bv);
+    }
+    client.print("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nOK");
+
+  // ── Route: /setmode?m=N (0=default, 1-5=custom)
+  } else if (req.indexOf("/setmode") != -1) {
+    int mi=req.indexOf("m=");
+    if (mi!=-1) {
+      activeMode=(LampMode)constrain(req.substring(mi+2).toInt(),0,5);
+      applyActiveColors();
+      savePrefs();
+      Serial.printf("[Web] Mode->%d\n",(int)activeMode);
+    }
+    client.print("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nOK");
+
+  // ── Route: /setname?p=N&name=... — update a profile's display name
+  } else if (req.indexOf("/setname") != -1) {
+    int pi=req.indexOf("p="), ni=req.indexOf("name=");
+    if (pi!=-1&&ni!=-1) {
+      int p=constrain(req.substring(pi+2).toInt(),0,4);
+      String nm=req.substring(ni+5);
+      int sp=nm.indexOf(' ');if(sp!=-1)nm=nm.substring(0,sp);
+      nm.replace("+"," "); nm.replace("%20"," ");
+      if(nm.length()>11)nm=nm.substring(0,11);
+      strncpy(customProfiles[p].name,nm.c_str(),sizeof(customProfiles[p].name)-1);
+      customProfiles[p].name[sizeof(customProfiles[p].name)-1]='\0';
+      Serial.printf("[Web] Profile %d name->%s\n",p,customProfiles[p].name);
+    }
+    client.print("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nOK");
+
+  // ── Route: /saveprofile — persist all profiles to NVS
+  } else if (req.indexOf("/saveprofile") != -1) {
+    applyActiveColors();
+    savePrefs();
+    client.print("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nOK");
+
+  // ── Route: /discardprofile?p=N — reload profile from NVS, undo staged RAM edits
+  } else if (req.indexOf("/discardprofile") != -1) {
+    int di=req.indexOf("p=");
+    if (di!=-1) {
+      int p=constrain(req.substring(di+2).toInt(),0,4);
+      char key[10]; sprintf(key,"profile%d",p);
+      prefs.begin("elamp",true);
+      size_t got=prefs.getBytes(key,&customProfiles[p],sizeof(customProfiles[p]));
+      prefs.end();
+      if (got!=sizeof(customProfiles[p])) {
+        for(int z=0;z<5;z++) customProfiles[p].zones[z]=DEFAULT_ZONES[z];
+        char nm[12]; sprintf(nm,"Custom %d",p+1);
+        strncpy(customProfiles[p].name,nm,sizeof(customProfiles[p].name));
+      }
+      if((int)activeMode==p+1) applyActiveColors(); // re-apply if this is active profile
+      Serial.printf("[Web] Profile %d discarded (reverted from NVS)\n",p);
     }
     client.print("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nOK");
 
@@ -269,14 +422,18 @@ void processWebClients() {
 // ── setup() and loop() ────────────────────────────────────────
 void setup() {
   Serial.begin(115200);
+  loadPrefs();           // restore brightness, mode, custom profile from NVS
+  applyActiveColors();   // fill activeColors[] from loaded settings
   FastLED.addLeds<WS2812B, LED_DATA_PIN, GRB>(leds, NUM_LEDS);
-  FastLED.setBrightness(BRIGHT_QUIET);
-  fill_solid(leds, NUM_LEDS, CRGB::White);
+  FastLED.setBrightness(0);          // start dark — standby mode
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
   FastLED.show();
+  currentBright = 0;                 // prevent fade-out logic from triggering
   startWiFiAP();
   startWebServer();
   setupI2S();
-  Serial.println("[Lamp] Emotion Lamp v2.1 ready.");
+  Serial.printf("[Lamp] Emotion Lamp v3.0 — brightness=%d mode=%s\n",
+    (int)userBrightness, activeMode==MODE_DEFAULT?"default":"custom");
 }
 
 void loop() {

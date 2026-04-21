@@ -1,1 +1,1 @@
-IoT Project for College, work in progress
+IoT Project for College

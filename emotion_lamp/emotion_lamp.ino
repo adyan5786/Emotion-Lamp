@@ -850,6 +850,20 @@ void sendJsonEscaped(WiFiClient& client, const char* s) {
 
 // Sends JSON with current lamp state — fetched by the webpage on load
 // and periodically for live RMS/Freq display.
+void sendLiveAudio(WiFiClient& client) {
+  client.print(
+    "HTTP/1.1 200 OK\r\n"
+    "Content-Type: application/json\r\n"
+    "Access-Control-Allow-Origin: *\r\n"
+    "Connection: close\r\n\r\n");
+
+  client.printf(
+    "{\"rms\":%.1f,\"hz\":%.1f}",
+    (double)smoothedRMS,
+    (double)smoothedFreq
+  );
+}
+
 void sendStatus(WiFiClient& client) {
   static const char* ZONE_NAMES[5] = {
     "Bass", "Low Speech", "Mid Speech", "Upper Speech", "Loud/Shrill"
@@ -870,14 +884,17 @@ void sendStatus(WiFiClient& client) {
 
   client.printf(
     "{\"on\":%s,\"brightness\":%d,\"anim\":%d,\"mode\":%d,"
-    "\"audio\":{\"q\":%d,\"n\":%d,\"f\":[%d,%d,%d,%d]},",
+    "\"audio\":{\"q\":%d,\"n\":%d,\"f\":[%d,%d,%d,%d]},"
+    "\"live\":{\"rms\":%.1f,\"hz\":%.1f},",
     audioReactiveEnabled ? "true" : "false",
     (int)userBrightness,
     (int)activeAnim,
     (int)activeMode,
     quietThresh,
     noisyThresh,
-    freqBands[0], freqBands[1], freqBands[2], freqBands[3]
+    freqBands[0], freqBands[1], freqBands[2], freqBands[3],
+    (double)smoothedRMS,
+    (double)smoothedFreq
   );
 
   client.print("\"profileNames\":[");
@@ -922,14 +939,24 @@ void processWebClients() {
   WiFiClient client = server.available();
   if (!client) return;
 
+  client.setTimeout(20);
   unsigned long t = millis();
-  while (!client.available() && millis() - t < 200) delay(1);
+  while (!client.available() && millis() - t < 40) delay(1);
+
+  if (!client.available()) {
+    client.stop();
+    return;
+  }
 
   String req = client.readStringUntil('\r');
   client.flush();
 
   // ── Route: /status ─────────────────────────────────────────
-  if (req.indexOf("/status") != -1) {
+  if (req.indexOf("/liveaudio") != -1) {
+    sendLiveAudio(client);
+
+  // ── Route: /status ─────────────────────────────────────────
+  } else if (req.indexOf("/status") != -1) {
     sendStatus(client);
 
   // ── Route: /netstatus — runtime AP/STA state for UI

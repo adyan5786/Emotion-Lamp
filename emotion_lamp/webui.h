@@ -28,8 +28,8 @@ button{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 .ni{display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;color:var(--dim);font-size:.84rem;font-weight:500;border-left:3px solid transparent;transition:all .15s;user-select:none}
 .ni:hover{background:var(--sf2);color:var(--tx)}
 .ni.active{color:var(--accent);border-left-color:var(--accent);background:rgba(184,160,240,.07)}
-.content{flex:1;overflow-y:auto;display:flex;flex-direction:column;padding-bottom:var(--nav)}
-.panel{display:none;flex-direction:column;flex:1}
+.content{flex:1;display:flex;flex-direction:column;padding-bottom:var(--nav);overflow:hidden}
+.panel{display:none;flex-direction:column;flex:1;overflow-y:auto}
 .panel.active{display:flex}
 .ph{display:flex;align-items:center;justify-content:space-between;padding:20px 20px 0}
 .ph h2{font-size:1.15rem;font-weight:700}
@@ -89,10 +89,6 @@ button{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 .bi.active{color:var(--accent)}
 .bi.active svg{stroke:var(--accent)!important}
 @media(min-width:640px){.sidebar{display:flex}.bnav{display:none}.content{padding-bottom:0}}
-@media(max-width:639px){
-  html,body{overflow-y:auto;overflow-x:hidden}
-  .content{overflow-y:visible;min-height:100dvh}
-}
 /* toast notification */
 .toast{position:fixed;top:-70px;left:50%;transform:translateX(-50%);z-index:400;background:var(--sf);border:1px solid #3a6b3a;border-radius:10px;padding:11px 22px;font-size:.84rem;font-weight:600;color:#7dff9a;transition:top .4s cubic-bezier(.22,1,.36,1);white-space:nowrap;box-shadow:0 6px 24px rgba(0,0,0,.5);pointer-events:none}
 .toast.show{top:16px}
@@ -146,13 +142,19 @@ button{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 .meter{width:100%;height:10px;border-radius:999px;background:#0f0f0f;border:1px solid var(--bd);overflow:hidden;margin-top:8px}
 .meter-fill{height:100%;width:0%;background:#b8a0f0;transition:width .35s ease}
 .meter-meta{font-size:.7rem;color:var(--dim);margin-top:6px}
+.audio-live-card{background:#181818;border:1px solid var(--bd);border-radius:12px;padding:12px}
+.audio-live-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.audio-live-k{font-size:.68rem;color:var(--dim);text-transform:uppercase;letter-spacing:.06em}
+.audio-live-v{font-size:1.2rem;font-weight:700;color:var(--tx);margin-top:4px}
+.audio-live-scroll{width:100%;overflow-x:auto;overflow-y:hidden;border-radius:10px;border:1px solid var(--bd);background:#101010}
+.audio-live-canvas{height:180px;display:block}
 @media(max-width:480px){.spec-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 
 <nav class="sidebar">
-  <div class="sb-head"><h1>Emotion Lamp</h1><p>ESP32 &middot; 4.3.2.1</p></div>
+  <div class="sb-head"><h1>Emotion Lamp</h1><p id="access-host">ESP32 &middot; 4.3.2.1</p></div>
   <div class="sb-nav">
     <div class="ni active" onclick="go('home',this)">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Home
@@ -191,7 +193,7 @@ button{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
     <div class="ph"><h2>Effects</h2></div>
 
     <!-- Main effects view -->
-    <div id="fx-main" style="display:flex;flex-direction:column;flex:1;overflow-y:auto;padding-bottom:calc(var(--nav) + 18px)">
+    <div id="fx-main" style="display:flex;flex-direction:column;padding-bottom:20px">
 
       <!-- Brightness (top) -->
       <div class="sec" style="padding-top:18px">
@@ -239,7 +241,7 @@ button{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
     </div>
 
     <!-- Custom colours editor view (hidden by default) -->
-    <div id="fx-custom" style="display:none;flex-direction:column;flex:1;overflow-y:auto;padding-bottom:calc(var(--nav) + 18px)">
+    <div id="fx-custom" style="display:none;flex-direction:column;min-height:100%">
       <div class="ph" style="padding-bottom:12px;gap:8px">
         <input id="profile-name-input" type="text" maxlength="11" placeholder="Profile name"
           style="font-size:1rem;font-weight:700;background:transparent;border:none;border-bottom:2px solid var(--bd);color:var(--tx);outline:none;padding:2px 4px;flex:1;width:100%"
@@ -249,7 +251,7 @@ button{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
         <div class="sec-title">Tap a zone to edit its colour</div>
         <div id="custom-zones-list"></div>
       </div>
-      <div style="display:flex;gap:10px;padding:12px 20px 24px">
+      <div style="margin-top:auto;position:sticky;bottom:0;background:var(--bg);display:flex;gap:10px;padding:16px 20px 24px;border-top:1px solid rgba(255,255,255,.05);z-index:10">
         <button class="back-btn" onclick="backFromCustom()">&#8592; Back</button>
         <button class="wifi-btn primary" style="flex:1" id="save-profile-btn" onclick="saveProfile()">Save Profile</button>
       </div>
@@ -259,10 +261,14 @@ button{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
   <!-- SETTINGS -->
   <div id="p-settings" class="panel">
     <div class="ph"><h2>Settings</h2></div>
-    <div style="flex:1;overflow-y:auto;padding-top:20px;padding-bottom:30px;">
+    <div style="padding-top:20px;padding-bottom:30px;">
       
       <div class="sec">
         <div class="sec-title">Device</div>
+        <div class="setting-item" onclick="openAudioLiveModal()">
+          <span>Live Audio Monitor</span>
+          <span class="chev">&#8250;</span>
+        </div>
         <div class="setting-item" onclick="openSensModal()">
           <span>Microphone Sensitivity</span>
           <span class="chev">&#8250;</span>
@@ -415,6 +421,38 @@ button{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
     <div class="wifi-modal-footer">
       <button class="wifi-btn" style="flex:1" onclick="discardNetworkChanges()">Discard Staged Changes</button>
       <button class="wifi-btn primary" style="flex:1" onclick="applyNetworkChanges()">Apply & Reboot</button>
+    </div>
+  </div>
+</div>
+
+<!-- Live Audio Monitor Modal -->
+<div id="audio-live-modal" style="display:none;position:fixed;inset:0;z-index:330;background:rgba(0,0,0,.78);align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--sf);border:1px solid var(--bd);border-radius:16px;width:min(560px,100%);overflow:hidden;box-shadow:0 18px 60px rgba(0,0,0,.55)">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 16px 14px;border-bottom:1px solid var(--bd)">
+      <span style="font-size:.96rem;font-weight:700">Live Audio Monitor</span>
+      <button onclick="closeAudioLiveModal()" class="modal-close-btn">&times;</button>
+    </div>
+    <div class="modal-scroll" style="padding:16px;max-height:72vh;overflow-y:auto">
+      <div class="audio-live-card">
+        <div class="audio-live-row">
+          <div>
+            <div class="audio-live-k">Current RMS</div>
+            <div class="audio-live-v" id="audio-live-rms">-</div>
+          </div>
+          <div>
+            <div class="audio-live-k">Current Frequency</div>
+            <div class="audio-live-v" id="audio-live-hz">- Hz</div>
+          </div>
+        </div>
+        <div id="audio-live-scroll" class="audio-live-scroll">
+          <canvas id="audio-live-canvas" class="audio-live-canvas" width="520" height="180"></canvas>
+        </div>
+        <div style="display:flex;justify-content:space-between;gap:10px;margin-top:8px;font-size:.7rem;color:var(--dim)">
+          <span>Green: RMS (scaled)</span>
+          <span>Blue: Frequency (scaled)</span>
+        </div>
+      </div>
+      <div class="wifi-note" style="margin-top:10px">Scrollable timeline view. Updates every ~180 ms while this modal is open.</div>
     </div>
   </div>
 </div>
@@ -646,6 +684,156 @@ var wifiModalOpen=false;
 var wifiStatusCache=null;
 var wifiCfgCache=null;
 var sysModalOpen=false;
+var audioLiveModalOpen=false;
+var audioLiveTimer=null;
+var audioHistoryRms=[];
+var audioHistoryHz=[];
+var lastLiveRms=0;
+var lastLiveHz=0;
+var statusTimer=null;
+var audioGraphPxPerSample=1.8;
+var audioGraphMaxPoints=1800;
+
+function setAccessHostLabel(){
+  var el=document.getElementById('access-host');
+  if(!el)return;
+  var host=window.location.hostname||'';
+  var port=window.location.port?(':'+window.location.port):'';
+  el.textContent='ESP32 \u00b7 '+(host?(host+port):'4.3.2.1');
+}
+
+function setLiveAudio(rms,hz){
+  var r=(rms===undefined||rms===null)?0:Math.max(0,Number(rms)||0);
+  var h=(hz===undefined||hz===null)?0:Math.max(0,Number(hz)||0);
+  lastLiveRms=r;
+  lastLiveHz=h;
+
+  if(audioLiveModalOpen){
+    var rmsEl=document.getElementById('audio-live-rms');
+    var hzEl=document.getElementById('audio-live-hz');
+    if(rmsEl) rmsEl.textContent=Math.round(r);
+    if(hzEl) hzEl.textContent=Math.round(h)+' Hz';
+  }
+}
+
+function startStatusPolling(){
+  if(statusTimer) return;
+  statusTimer=setInterval(loadStatus,3000);
+}
+
+function stopStatusPolling(){
+  if(!statusTimer) return;
+  clearInterval(statusTimer);
+  statusTimer=null;
+}
+
+function pushAudioHistory(rms,hz){
+  audioHistoryRms.push(rms);
+  audioHistoryHz.push(hz);
+  if(audioHistoryRms.length>audioGraphMaxPoints) audioHistoryRms.shift();
+  if(audioHistoryHz.length>audioGraphMaxPoints) audioHistoryHz.shift();
+}
+
+function drawAudioGraph(){
+  var scrollBox=document.getElementById('audio-live-scroll');
+  var cv=document.getElementById('audio-live-canvas');
+  if(!cv) return;
+  var n=Math.max(audioHistoryRms.length,audioHistoryHz.length);
+  var viewW=scrollBox?Math.max(300,scrollBox.clientWidth):520;
+  var desiredW=Math.max(viewW,Math.floor((Math.max(1,n)-1)*audioGraphPxPerSample)+2);
+  var desiredH=180;
+
+  var followEnd=true;
+  if(scrollBox){
+    followEnd=(scrollBox.scrollLeft+scrollBox.clientWidth)>=((scrollBox.scrollWidth||0)-24);
+  }
+
+  if(cv.width!==desiredW||cv.height!==desiredH){
+    cv.width=desiredW;
+    cv.height=desiredH;
+  }
+
+  var ctx=cv.getContext('2d');
+  var w=cv.width,h=cv.height;
+  ctx.clearRect(0,0,w,h);
+
+  ctx.strokeStyle='rgba(255,255,255,.08)';
+  ctx.lineWidth=1;
+  for(var gy=1;gy<=3;gy++){
+    var y=(h/4)*gy;
+    ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();
+  }
+
+  if(n<2) return;
+
+  ctx.strokeStyle='rgba(255,255,255,.05)';
+  for(var gx=120;gx<w;gx+=120){
+    ctx.beginPath();ctx.moveTo(gx,0);ctx.lineTo(gx,h);ctx.stroke();
+  }
+
+  var rmsScale=Math.max(lastAudioSnapshot&&lastAudioSnapshot.n?Number(lastAudioSnapshot.n):1800,500);
+  var hzScale=Math.max(lastAudioSnapshot&&lastAudioSnapshot.f?Number(lastAudioSnapshot.f[3]):1300,500);
+
+  ctx.lineWidth=2;
+  ctx.strokeStyle='rgba(100,220,130,.95)';
+  ctx.beginPath();
+  for(var i=0;i<audioHistoryRms.length;i++){
+    var x=i*audioGraphPxPerSample;
+    var yn=Math.max(0,Math.min(1,audioHistoryRms[i]/rmsScale));
+    var y=h-(yn*h);
+    if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  }
+  ctx.stroke();
+
+  ctx.strokeStyle='rgba(130,180,255,.95)';
+  ctx.beginPath();
+  for(var j=0;j<audioHistoryHz.length;j++){
+    var x2=j*audioGraphPxPerSample;
+    var fn=Math.max(0,Math.min(1,audioHistoryHz[j]/hzScale));
+    var y2=h-(fn*h);
+    if(j===0) ctx.moveTo(x2,y2); else ctx.lineTo(x2,y2);
+  }
+  ctx.stroke();
+
+  if(scrollBox&&followEnd){
+    scrollBox.scrollLeft=Math.max(0,scrollBox.scrollWidth-scrollBox.clientWidth);
+  }
+}
+
+function loadLiveAudioSample(){
+  fetch('/liveaudio').then(function(r){return r.json();}).then(function(d){
+    if(d){
+      setLiveAudio(d.rms,d.hz);
+      pushAudioHistory(lastLiveRms,lastLiveHz);
+      drawAudioGraph();
+    }
+  }).catch(function(){});
+}
+
+function openAudioLiveModal(){
+  audioLiveModalOpen=true;
+  stopStatusPolling();
+  audioHistoryRms=[];
+  audioHistoryHz=[];
+  document.getElementById('audio-live-rms').textContent=Math.round(lastLiveRms||0);
+  document.getElementById('audio-live-hz').textContent=Math.round(lastLiveHz||0)+' Hz';
+  document.getElementById('audio-live-modal').style.display='flex';
+  pushAudioHistory(lastLiveRms,lastLiveHz);
+  drawAudioGraph();
+  loadLiveAudioSample();
+  if(audioLiveTimer) clearInterval(audioLiveTimer);
+  audioLiveTimer=setInterval(loadLiveAudioSample,180);
+}
+
+function closeAudioLiveModal(){
+  audioLiveModalOpen=false;
+  document.getElementById('audio-live-modal').style.display='none';
+  if(audioLiveTimer){
+    clearInterval(audioLiveTimer);
+    audioLiveTimer=null;
+  }
+  startStatusPolling();
+}
 
 // ── Tab navigation ────────────────────────────────────────────
 var pendingNav=null; // stores blocked navigation when profileDirty
@@ -932,6 +1120,7 @@ function openCustomEditor(profileIdx,evt){
   if(inp)inp.value=nm;
   document.getElementById('fx-main').style.display='none';
   document.getElementById('fx-custom').style.display='flex';
+  document.getElementById('p-effects').scrollTop=0;
   profileDirty=false;
   renderCustomZones();
 }
@@ -975,6 +1164,7 @@ function backFromCustom(){
   if(profileDirty){pendingNav=null;showWarnModal();return;}
   document.getElementById('fx-custom').style.display='none';
   document.getElementById('fx-main').style.display='flex';
+  document.getElementById('p-effects').scrollTop=0;
 }
 function showToast(msg){
   var t=document.getElementById('toast');
@@ -989,6 +1179,7 @@ function saveProfile(){
       // Return to home tab
       document.getElementById('fx-custom').style.display='none';
       document.getElementById('fx-main').style.display='flex';
+      document.getElementById('p-effects').scrollTop=0;
       go('home',document.getElementById('b-home'),1);
       showToast('\u2713  Profile Saved');
       loadStatus(); // refresh home tab zone colours
@@ -1311,6 +1502,9 @@ function onBright(val){
 // ── Status fetch ──────────────────────────────────────────────
 function applyStatus(d){
   setUI(d.on);
+  if(d.live){
+    setLiveAudio(d.live.rms,d.live.hz);
+  }
   if(!sliderInteracted&&d.brightness!==undefined){
     document.getElementById('brightSlider').value=d.brightness;
     document.getElementById('bval').textContent=d.brightness;
@@ -1355,8 +1549,9 @@ function loadStatus(){
   fetch('/status').then(function(r){return r.json();}).then(applyStatus).catch(function(){});
 }
 window.addEventListener('load',function(){
+  setAccessHostLabel();
   loadStatus();
-  setInterval(loadStatus,3000);
+  startStatusPolling();
   setInterval(loadNetStatus,3000);
   setInterval(function(){if(sysModalOpen)loadSysInfo();},3000);
   // Wire canvas picker events

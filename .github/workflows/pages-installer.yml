@@ -1,0 +1,79 @@
+name: Build and Deploy Installer
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "emotion_lamp/**"
+      - "docs/**"
+      - "tools/validate_installer.py"
+      - ".github/workflows/pages-installer.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Validate installer metadata
+        run: python tools/validate_installer.py
+
+      - name: Setup arduino-cli
+        uses: arduino/setup-arduino-cli@v2
+
+      - name: Install ESP32 core and libraries
+        run: |
+          arduino-cli config init --overwrite
+          arduino-cli core update-index
+          arduino-cli core install esp32:esp32
+          arduino-cli lib install FastLED arduinoFFT
+
+      - name: Compile firmware binaries
+        run: |
+          arduino-cli compile --fqbn esp32:esp32:esp32 --output-dir build emotion_lamp
+
+      - name: Prepare site artifact
+        run: |
+          mkdir -p _site
+          cp -R docs/* _site/
+          mkdir -p _site/firmware
+          cp build/emotion_lamp.ino.bootloader.bin _site/firmware/bootloader.bin
+          cp build/emotion_lamp.ino.partitions.bin _site/firmware/partitions.bin
+          cp build/emotion_lamp.ino.bin _site/firmware/firmware.bin
+          test -s _site/firmware/bootloader.bin
+          test -s _site/firmware/partitions.bin
+          test -s _site/firmware/firmware.bin
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

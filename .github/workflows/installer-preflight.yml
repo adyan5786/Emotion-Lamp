@@ -1,0 +1,29 @@
+name: Installer Preflight
+
+on:
+  push:
+    paths:
+      - "docs/**"
+      - "tools/validate_installer.py"
+      - ".github/workflows/installer-preflight.yml"
+  pull_request:
+    paths:
+      - "docs/**"
+      - "tools/validate_installer.py"
+      - ".github/workflows/installer-preflight.yml"
+  workflow_dispatch:
+
+jobs:
+  validate-installer:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Validate installer files and manifest
+        run: python tools/validate_installer.py

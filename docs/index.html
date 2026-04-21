@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Emotion Lamp Installer</title>
+  <meta name="description" content="One-click browser installer for Emotion Lamp firmware on ESP32." />
+  <style>
+    :root {
+      --bg: #111;
+      --sf: #1a1a1a;
+      --sf2: #222;
+      --bd: #2c2c2c;
+      --tx: #dedede;
+      --dim: #777;
+      --accent: #b8a0f0;
+      --on: #7dff9a;
+      --warn: #f0b26a;
+      --bad: #e07070;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      color: var(--tx);
+      background:
+        radial-gradient(1100px 620px at -10% -20%, rgba(184, 160, 240, 0.16), transparent 45%),
+        radial-gradient(900px 560px at 110% 0%, rgba(120, 80, 180, 0.14), transparent 45%),
+        var(--bg);
+      min-height: 100vh;
+      padding: 28px 14px 42px;
+    }
+
+    .shell {
+      width: min(1020px, 100%);
+      margin: 0 auto;
+      display: grid;
+      gap: 14px;
+    }
+
+    .panel {
+      background: linear-gradient(180deg, var(--sf), #171717);
+      border: 1px solid var(--bd);
+      border-radius: 16px;
+      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.35);
+    }
+
+    .hero {
+      padding: 18px 18px 16px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      right: -60px;
+      top: -60px;
+      width: 220px;
+      height: 220px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(184, 160, 240, 0.22), transparent 65%);
+      pointer-events: none;
+    }
+
+    .eyebrow {
+      display: inline-block;
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 6px;
+      border: 1px solid rgba(184, 160, 240, 0.45);
+      border-radius: 999px;
+      padding: 4px 10px;
+      background: rgba(184, 160, 240, 0.08);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.35rem, 2vw + 1rem, 2rem);
+      line-height: 1.2;
+    }
+
+    .lead {
+      margin: 8px 0 0;
+      color: #c8c8cf;
+      line-height: 1.45;
+      max-width: 720px;
+    }
+
+    .grid {
+      display: grid;
+      gap: 14px;
+      grid-template-columns: 1fr;
+    }
+
+    @media (min-width: 920px) {
+      .grid {
+        grid-template-columns: 1.25fr 0.75fr;
+      }
+    }
+
+    .card {
+      padding: 16px;
+    }
+
+    h2 {
+      margin: 0 0 8px;
+      font-size: 1.02rem;
+      letter-spacing: 0.02em;
+    }
+
+    p,
+    li {
+      color: #b3b3bb;
+      line-height: 1.45;
+    }
+
+    .compat {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .chip {
+      font-size: 0.76rem;
+      border-radius: 999px;
+      padding: 5px 10px;
+      border: 1px solid var(--bd);
+      color: #c8c8cf;
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .chip.ok { color: var(--on); border-color: #2d6b3a; background: rgba(100, 220, 130, 0.08); }
+    .chip.warn { color: var(--warn); border-color: #7d5a2e; background: rgba(180, 120, 50, 0.12); }
+    .chip.bad { color: var(--bad); border-color: #7a3a3a; background: rgba(180, 60, 60, 0.12); }
+
+    .install-row {
+      margin-top: 12px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .status {
+      font-size: 0.86rem;
+      border-radius: 10px;
+      border: 1px solid var(--bd);
+      background: var(--sf2);
+      color: var(--dim);
+      padding: 10px 12px;
+      min-height: 40px;
+      display: flex;
+      align-items: center;
+    }
+
+    .status.ok { color: var(--on); border-color: #2d6b3a; }
+    .status.warn { color: var(--warn); border-color: #7d5a2e; }
+    .status.bad { color: var(--bad); border-color: #7a3a3a; }
+
+    .steps {
+      margin: 8px 0 0;
+      padding-left: 18px;
+    }
+
+    .features {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .feature {
+      border: 1px solid var(--bd);
+      border-radius: 12px;
+      background: var(--sf2);
+      padding: 10px 11px;
+    }
+
+    .feature b {
+      display: block;
+      margin-bottom: 3px;
+      color: var(--tx);
+      font-size: 0.9rem;
+    }
+
+    code {
+      color: #f3f0ff;
+      background: rgba(184, 160, 240, 0.14);
+      border: 1px solid rgba(184, 160, 240, 0.25);
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-size: 0.84em;
+    }
+
+    a {
+      color: #d4c1ff;
+      text-decoration: none;
+    }
+
+    a:hover { text-decoration: underline; }
+
+    .small { font-size: 0.82rem; color: var(--dim); }
+  </style>
+  <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
+</head>
+<body>
+  <main class="shell">
+    <section class="panel hero">
+      <span class="eyebrow">Emotion Lamp</span>
+      <h1>One-Click ESP32 Installer</h1>
+      <p class="lead">Install the latest Emotion Lamp firmware directly from your browser and start using the audio-reactive web interface in minutes.</p>
+    </section>
+
+    <section class="grid">
+      <article class="panel card">
+        <h2>Install Firmware</h2>
+        <p>Connect your ESP32 through USB, then click Install. No extra files are required from the user side.</p>
+
+        <div class="compat">
+          <span class="chip ok">Chrome / Edge Desktop: Supported</span>
+          <span class="chip warn">Android Chrome: Usually Supported</span>
+          <span class="chip bad">iOS Safari: Not Supported</span>
+        </div>
+
+        <div class="install-row">
+          <esp-web-install-button id="installBtn" manifest="manifest.json"></esp-web-install-button>
+          <div class="status" id="artifactStatus">Checking firmware package...</div>
+        </div>
+
+        <p class="small" style="margin-top:10px">If flashing does not start, hold the ESP32 BOOT button while clicking Install.</p>
+      </article>
+
+      <article class="panel card">
+        <h2>Quick Setup</h2>
+        <ol class="steps">
+          <li>Flash completes and board reboots.</li>
+          <li>Connect to Wi-Fi AP <code>Emotion-Lamp</code>.</li>
+          <li>Open <a href="http://4.3.2.1">http://4.3.2.1</a>.</li>
+          <li>Configure Home Wi-Fi in Wi-Fi Configurator.</li>
+        </ol>
+      </article>
+    </section>
+
+    <section class="panel card">
+      <h2>What You Get</h2>
+      <div class="features">
+        <div class="feature">
+          <b>Audio-Reactive Lighting</b>
+          RMS and frequency-driven color and brightness behavior optimized for ESP32.
+        </div>
+        <div class="feature">
+          <b>Web Control Dashboard</b>
+          Power, brightness, profile editing, animation selection, and tuning from one interface.
+        </div>
+        <div class="feature">
+          <b>Network Recovery Built-In</b>
+          AP fallback and staged Wi-Fi config with safe apply/reboot workflow.
+        </div>
+      </div>
+    </section>
+
+    <section class="panel card">
+      <h2>Support Notes</h2>
+      <ol class="steps">
+        <li>Use a data USB cable (not charge-only).</li>
+        <li>Close other serial tools before flashing.</li>
+        <li>This installer flashes bootloader, partitions, and app firmware.</li>
+      </ol>
+    </section>
+  </main>
+
+  <script>
+    (function () {
+      const requiredFiles = [
+        "firmware/bootloader.bin",
+        "firmware/partitions.bin",
+        "firmware/firmware.bin"
+      ];
+
+      const status = document.getElementById("artifactStatus");
+      const installBtn = document.getElementById("installBtn");
+
+      function setInstallEnabled(enabled) {
+        installBtn.style.pointerEvents = enabled ? "auto" : "none";
+        installBtn.style.opacity = enabled ? "1" : "0.45";
+      }
+
+      function verifyFiles(files) {
+        return Promise.all(files.map((f) => fetch(f, { method: "HEAD" })));
+      }
+
+      verifyFiles(requiredFiles)
+        .then((responses) => {
+          const missing = responses.some((r) => !r.ok);
+          if (missing) {
+            status.className = "status warn";
+            status.textContent = "Firmware package missing on host. Build/deploy workflow must finish first.";
+            setInstallEnabled(false);
+            return;
+          }
+          status.className = "status ok";
+          status.textContent = "Installer ready. You can flash now.";
+          setInstallEnabled(true);
+        })
+        .catch(() => {
+          status.className = "status bad";
+          status.textContent = "Unable to verify firmware files. Check hosting and retry.";
+          setInstallEnabled(false);
+        });
+    })();
+  </script>
+</body>
+</html>

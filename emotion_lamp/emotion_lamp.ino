@@ -53,7 +53,13 @@ int noisyThresh = NOISY_THRESHOLD;
 int freqBands[4] = { FREQ_BAND_1, FREQ_BAND_2, FREQ_BAND_3, FREQ_BAND_4 };
 
 // ── Persistent settings types ─────────────────────────────────
-enum AnimStyle { ANIM_SOLID = 0, ANIM_MATRIX = 1 };
+enum AnimStyle {
+  ANIM_SOLID   = 0,
+  ANIM_MATRIX  = 1,
+  ANIM_TWINKLE = 2,
+  ANIM_RIPPLE  = 3,
+  ANIM_WIPE    = 4
+};
 AnimStyle activeAnim = ANIM_SOLID;
 unsigned long lastMatrixUpdate = 0;
 #define MATRIX_SPEED_MS 40
@@ -236,7 +242,7 @@ void loadPrefs() {
   prefs.begin("elamp", true);
   userBrightness = prefs.getUChar("brightness", BRIGHT_MAX);
   activeMode     = (LampMode)constrain(prefs.getUChar("mode", 0), 0, 5);
-  activeAnim     = (AnimStyle)constrain(prefs.getUChar("anim", 0), 0, 1);
+  activeAnim     = (AnimStyle)constrain(prefs.getUChar("anim", 0), 0, 4);
   quietThresh    = prefs.getInt("quiet", QUIET_THRESHOLD);
   noisyThresh    = prefs.getInt("noisy", NOISY_THRESHOLD);
   freqBands[0]   = prefs.getInt("fb0", FREQ_BAND_1);
@@ -337,6 +343,14 @@ CRGB freqToColor(float freq) {
 void updateLamp(float rms, float freq) {
   CRGB    targetColor;
   uint8_t targetBright;
+  static AnimStyle lastAnim = ANIM_SOLID;
+  static int wipePos = 0;
+  static int wipeDir = 1;
+  static unsigned long wipeLastStepMs = 0;
+  static bool rippleActive = false;
+  static int rippleCenter = 0;
+  static int rippleStep = 0;
+  static CRGB rippleColor = CRGB::Black;
 
   if (rms < quietThresh) {
     targetColor  = CRGB(255, 255, 255);
@@ -359,19 +373,91 @@ void updateLamp(float rms, float freq) {
   uint8_t finalBright = (uint8_t)((uint32_t)currentBright * userBrightness / 255);
   FastLED.setBrightness(finalBright);
 
-  if (activeAnim == ANIM_SOLID) {
-    fill_solid(leds, NUM_LEDS, currentColor);
-  } else {
-    // ANIM_MATRIX
-    if (millis() - lastMatrixUpdate > MATRIX_SPEED_MS) {
-      lastMatrixUpdate = millis();
-      // Shift all LEDs one step to the right (up the strip)
-      for (int i = NUM_LEDS - 1; i > 0; i--) {
-        leds[i] = leds[i - 1];
+  bool animChanged = (activeAnim != lastAnim);
+  if (animChanged) {
+    fill_solid(leds, NUM_LEDS, CRGB::Black);
+    lastMatrixUpdate = 0;
+    wipePos = 0;
+    wipeDir = 1;
+    wipeLastStepMs = 0;
+    rippleActive = false;
+    rippleStep = 0;
+    lastAnim = activeAnim;
+  }
+
+  switch (activeAnim) {
+    case ANIM_SOLID:
+      fill_solid(leds, NUM_LEDS, currentColor);
+      break;
+
+    case ANIM_MATRIX:
+      if (millis() - lastMatrixUpdate > MATRIX_SPEED_MS) {
+        lastMatrixUpdate = millis();
+        for (int i = NUM_LEDS - 1; i > 0; i--) {
+          leds[i] = leds[i - 1];
+        }
+        leds[0] = currentColor;
       }
-      // Insert the newest colour at the beginning
-      leds[0] = currentColor;
+      break;
+
+    case ANIM_TWINKLE: {
+      fadeToBlackBy(leds, NUM_LEDS, 40);
+      uint8_t spawnChance = (rms < quietThresh) ? 30 : 120;
+      uint8_t twinkles = (uint8_t)constrain(map((long)rms, quietThresh, noisyThresh, 1, 4), 1, 4);
+      for (uint8_t i = 0; i < twinkles; i++) {
+        if (random8() < spawnChance) {
+          int idx = random16(NUM_LEDS);
+          CRGB c = currentColor;
+          c.nscale8_video((rms < quietThresh) ? 110 : 255);
+          leds[idx] = c;
+        }
+      }
+      break;
     }
+
+    case ANIM_RIPPLE: {
+      fadeToBlackBy(leds, NUM_LEDS, 55);
+      bool trigger = (!rippleActive) || ((rms > ((quietThresh + noisyThresh) / 2)) && random8() < 35);
+      if (trigger) {
+        rippleCenter = random16(NUM_LEDS);
+        rippleStep = 0;
+        rippleColor = currentColor;
+        rippleActive = true;
+      }
+      if (rippleActive) {
+        int maxStep = max(1, NUM_LEDS / 2);
+        uint8_t fadeLevel = qsub8(255, (uint8_t)(rippleStep * (255 / maxStep)));
+        CRGB c = rippleColor;
+        c.nscale8_video(fadeLevel);
+        int i1 = (rippleCenter + rippleStep) % NUM_LEDS;
+        int i2 = (rippleCenter - rippleStep + NUM_LEDS) % NUM_LEDS;
+        leds[i1] = c;
+        leds[i2] = c;
+        rippleStep++;
+        if (rippleStep > maxStep) rippleActive = false;
+      }
+      break;
+    }
+
+    case ANIM_WIPE: {
+      fadeToBlackBy(leds, NUM_LEDS, 35);
+      uint16_t stepMs = (uint16_t)constrain(map((long)rms, quietThresh, noisyThresh, 120, 30), 25, 140);
+      if (millis() - wipeLastStepMs >= stepMs) {
+        wipeLastStepMs = millis();
+        wipePos = (wipePos + wipeDir + NUM_LEDS) % NUM_LEDS;
+      }
+      if (rms >= noisyThresh && random8() < 25) wipeDir = -wipeDir;
+      leds[wipePos] = currentColor;
+      int tail = (wipePos - wipeDir + NUM_LEDS) % NUM_LEDS;
+      CRGB t = currentColor;
+      t.nscale8_video(145);
+      leds[tail] = t;
+      break;
+    }
+
+    default:
+      fill_solid(leds, NUM_LEDS, currentColor);
+      break;
   }
 
   FastLED.show();
@@ -890,11 +976,11 @@ void processWebClients() {
     }
     client.print("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nOK");
 
-  // ── Route: /setanim?a=N (0=solid, 1=matrix)
+  // ── Route: /setanim?a=N (0=solid, 1=matrix, 2=twinkle, 3=ripple, 4=wipe)
   } else if (req.indexOf("/setanim") != -1) {
     int ai=req.indexOf("a=");
     if (ai!=-1) {
-      activeAnim=(AnimStyle)constrain(req.substring(ai+2).toInt(),0,1);
+      activeAnim=(AnimStyle)constrain(req.substring(ai+2).toInt(),0,4);
       savePrefs();
       Serial.printf("[Web] Anim->%d\n",(int)activeAnim);
     }

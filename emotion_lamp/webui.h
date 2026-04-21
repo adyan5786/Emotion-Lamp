@@ -191,7 +191,7 @@ button{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
     <div class="ph"><h2>Effects</h2></div>
 
     <!-- Main effects view -->
-    <div id="fx-main" style="display:flex;flex-direction:column;flex:1">
+    <div id="fx-main" style="display:flex;flex-direction:column;flex:1;overflow-y:auto;padding-bottom:calc(var(--nav) + 18px)">
 
       <!-- Brightness (top) -->
       <div class="sec" style="padding-top:18px">
@@ -216,6 +216,18 @@ button{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
             <div class="mdindicator"></div>
             <span class="mdlabel">Matrix</span>
           </div>
+          <div class="mdbtn" id="anim-2" onclick="setAnim(2)">
+            <div class="mdindicator"></div>
+            <span class="mdlabel">Twinkle</span>
+          </div>
+          <div class="mdbtn" id="anim-3" onclick="setAnim(3)">
+            <div class="mdindicator"></div>
+            <span class="mdlabel">Ripple</span>
+          </div>
+          <div class="mdbtn" id="anim-4" onclick="setAnim(4)">
+            <div class="mdindicator"></div>
+            <span class="mdlabel">Wipe</span>
+          </div>
         </div>
       </div>
 
@@ -227,7 +239,7 @@ button{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
     </div>
 
     <!-- Custom colours editor view (hidden by default) -->
-    <div id="fx-custom" style="display:none;flex-direction:column;flex:1;overflow-y:auto">
+    <div id="fx-custom" style="display:none;flex-direction:column;flex:1;overflow-y:auto;padding-bottom:calc(var(--nav) + 18px)">
       <div class="ph" style="padding-bottom:12px;gap:8px">
         <input id="profile-name-input" type="text" maxlength="11" placeholder="Profile name"
           style="font-size:1rem;font-weight:700;background:transparent;border:none;border-bottom:2px solid var(--bd);color:var(--tx);outline:none;padding:2px 4px;flex:1;width:100%"
@@ -841,8 +853,10 @@ function saveZone(){
 
 // ── Animation selector ────────────────────────────────────────
 function setAnim(anim){
-  document.getElementById('anim-0').classList.toggle('active',anim===0);
-  document.getElementById('anim-1').classList.toggle('active',anim===1);
+  for(var i=0;i<=4;i++){
+    var b=document.getElementById('anim-'+i);
+    if(b) b.classList.toggle('active',anim===i);
+  }
   fetch('/setanim?a='+anim).catch(function(){});
 }
 
@@ -1303,9 +1317,10 @@ function applyStatus(d){
   }
   // Sync animation buttons
   if(d.anim!==undefined){
-    var a0=document.getElementById('anim-0'), a1=document.getElementById('anim-1');
-    if(a0) a0.classList.toggle('active',d.anim===0);
-    if(a1) a1.classList.toggle('active',d.anim===1);
+    for(var i=0;i<=4;i++){
+      var a=document.getElementById('anim-'+i);
+      if(a) a.classList.toggle('active',d.anim===i);
+    }
   }
   // Sync audio tunings
   if(d.audio){
@@ -1323,7 +1338,8 @@ function applyStatus(d){
     var pb=document.getElementById('profile-badge');
     if(pb){
       var pLabel=isCustom?(profileNames&&profileNames[d.mode-1]?profileNames[d.mode-1]:('Custom '+d.mode)):'Default';
-      var aLabel=(d.anim===1)?'Matrix':'Solid';
+      var animNames=['Solid','Matrix','Twinkle','Ripple','Wipe'];
+      var aLabel=animNames[d.anim]||'Solid';
       pb.textContent='Profile: '+pLabel+' | Anim: '+aLabel;
       pb.style.borderColor=isCustom?'rgba(184,160,240,.4)':'var(--bd)';
       pb.style.color=isCustom?'var(--accent)':'var(--dim)';
